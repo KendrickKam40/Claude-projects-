@@ -170,6 +170,13 @@
   .body ul { margin: 0 0 12px; padding-left: 18px; }
   .body li { margin: 4px 0; }
   .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .planb { margin-top: 14px; border: 2px dashed var(--warn-line); border-radius: 12px; background: var(--warn-bg); color: var(--warn-text); }
+  .planb summary { min-height: 48px; padding: 12px 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; }
+  .planb summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .planb-intro { margin: 0 14px 12px; font-size: .95rem; }
+  .planb-opt { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px 14px; border-top: 1px solid var(--warn-line); color: var(--text); background: var(--surface); }
+  .planb-opt:last-child { border-radius: 0 0 10px 10px; }
+  .planb-opt ul { margin: 6px 0 10px; }
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     min-height: 48px; padding: 0 18px; border-radius: 12px;
@@ -342,7 +349,17 @@
     { id: "nooroo", time: "10:15–11:00am", title: "Nooroo Garden",
       addr: "11–15 Church Ln, Mount Wilson NSW 2786",
       phone: "0247562018", phoneLabel: "(02) 4756 2018",
-      notes: ["Dogs welcome on lead.", "Flat, walker-accessible paths.", "Wisteria near peak in late October.", "Entry ~$12–15pp, cards OK.", "Kiosk and toilet."] },
+      notes: ["Spring 2026 opening isn't confirmed online. Call ahead before you leave.", "Dogs welcome on lead.", "Flat, walker-accessible paths.", "Wisteria near peak in late October.", "Entry ~$12–15pp, cards OK.", "Kiosk and toilet."],
+      planB: {
+        intro: "If Nooroo is closed, go to one of these instead. Both welcome dogs on lead. Park at the Fire Station as planned.",
+        options: [
+          { title: "Windyridge Garden", addr: "25 Queens Ave, Mount Wilson NSW 2786",
+            phone: "0247562019", phoneLabel: "(02) 4756 2019",
+            notes: ["Open every day from about 8–9am.", "Dogs welcome on lead.", "~$12.50 adult, tea, coffee and biscuits included.", "Ask about how steep the paths are for Ann."] },
+          { title: "Breenhold Gardens", addr: "29 The Avenue, Mount Wilson NSW 2786",
+            notes: ["Spring season listed to 27 October, 10am–4pm.", "Dogs on leads welcome.", "~$20 adult (2026 autumn price).", "On The Avenue, a short walk from the Fire Station."] }
+        ]
+      } },
     { id: "hillbilly", time: "11:45am–1:30pm", title: "Hillbilly Cider Shed",
       addr: "2230 Bells Line of Rd, Bilpin NSW 2758",
       phone: "0245670965", phoneLabel: "(02) 4567 0965",
@@ -401,6 +418,24 @@
     return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr);
   }
 
+  function planBox(b) {
+    var box = el("details", { class: "planb" }, [
+      el("summary", { text: "Plan B if it's closed" }),
+      el("p", { class: "planb-intro", text: b.intro })
+    ]);
+    b.options.forEach(function (o) {
+      var acts = [el("a", { class: "btn", href: mapsUrl(o.addr), target: "_blank", rel: "noopener", text: "📍 Open in Maps" })];
+      if (o.phone) acts.unshift(el("a", { class: "btn primary", href: "tel:" + o.phone, text: "📞 Call " + o.phoneLabel }));
+      box.appendChild(el("div", { class: "planb-opt" }, [
+        el("strong", { text: o.title }),
+        el("span", { class: "addr", text: o.addr }),
+        el("ul", null, o.notes.map(function (t) { return el("li", { text: t }); })),
+        el("div", { class: "actions" }, acts)
+      ]));
+    });
+    return box;
+  }
+
   var timeline = document.getElementById("timeline");
   stops.forEach(function (s, i) {
     var title = el("span", { class: "title", text: s.title });
@@ -420,7 +455,8 @@
 
     var body = el("div", { class: "body" }, [
       el("ul", null, s.notes.map(function (t) { return el("li", { text: t }); })),
-      el("div", { class: "actions" }, actions)
+      el("div", { class: "actions" }, actions),
+      s.planB ? planBox(s.planB) : null
     ]);
 
     var li = el("li", { class: "stop", "data-id": s.id }, [toggle, body]);
