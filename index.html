@@ -3,301 +3,318 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#16181a" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#070b0f">
 <title>Mt Wilson Dog Day Trip</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
+  /* One-screen tracker: full-bleed 3D map, glass HUD on top, tool rail right, stop cards + time scrubber docked below. */
   :root {
-    --bg: #f6f5f1;
-    --surface: #ffffff;
-    --text: #1d1f21;
-    --muted: #5d6266;
-    --line: #dcdad3;
-    --accent: #2f6f4f;
-    --accent-ink: #ffffff;
-    --accent-soft: #e1efe6;
-    --warn-bg: #fff3d6;
-    --warn-line: #e0b44c;
-    --warn-text: #5a4100;
-    --done: #8a8f93;
-    --sky-top: #c9dfee;
-    --sky-bottom: #eef2ef;
-    --road: #e5792a;
-    --road-casing: #ffffff;
-    --gps: #1a73e8;
-    --radius: 14px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #16181a;
-      --surface: #212427;
-      --text: #eceae4;
-      --muted: #a4a9ad;
-      --line: #363a3e;
-      --accent: #6fc196;
-      --accent-ink: #0f1a14;
-      --accent-soft: #23362b;
-      --warn-bg: #3a2f12;
-      --warn-line: #a5822c;
-      --warn-text: #f6dc97;
-      --done: #7b8085;
-      --sky-top: #0a111c;
-      --sky-bottom: #1f2a33;
-      --road: #f59a4a;
-      --road-casing: #15181b;
-      --gps: #4b9bff;
-      color-scheme: dark;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #16181a;
-    --surface: #212427;
-    --text: #eceae4;
-    --muted: #a4a9ad;
-    --line: #363a3e;
-    --accent: #6fc196;
-    --accent-ink: #0f1a14;
-    --accent-soft: #23362b;
-    --warn-bg: #3a2f12;
-    --warn-line: #a5822c;
-    --warn-text: #f6dc97;
-    --done: #7b8085;
-    --sky-top: #0a111c;
-    --sky-bottom: #1f2a33;
-    --road: #f59a4a;
-    --road-casing: #15181b;
-    --gps: #4b9bff;
     color-scheme: dark;
+    --ink: #070b0f;
+    --glass: rgba(12, 18, 24, 0.78);
+    --glass-solid: #0f161d;
+    --line: rgba(150, 185, 205, 0.16);
+    --text: #e7eef3;
+    --soft: #c9d4db;
+    --muted: #8e9fab;
+    --signal: #ffb547;
+    --signal-ink: #1d1405;
+    --ok: #49d6a0;
+    --ok-ink: #05150e;
+    --gps: #4ea8ff;
+    --alert: #ff7a5c;
+    --alert-bg: rgba(255, 122, 92, 0.12);
+    --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", Consolas, monospace;
+    --radius: 16px;
+    --hud-h: 110px;
+    --dock-h: 260px;
   }
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  html {
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--ink);
+  }
   body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 18px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    padding-block: 0 32px;
+    height: 100%; margin: 0; overflow: hidden;
+    background: var(--ink); color: var(--text);
+    font: 16px/1.4 var(--ui);
+    -webkit-tap-highlight-color: transparent;
+  }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ink); }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .eyebrow { font: 600 10.5px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  .app { position: relative; height: 100%; overflow: hidden; }
+  #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+
+  /* Top HUD */
+  .hud-top {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 3;
+    padding-block: 10px 18px;
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
+    background: linear-gradient(var(--ink) 30%, rgba(7, 11, 15, 0));
+    pointer-events: none;
   }
-  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
-  main { max-width: 640px; margin: 0 auto; }
-  a { color: inherit; }
+  .hud-top > * { pointer-events: auto; }
+  .bar { display: flex; align-items: center; gap: 12px; }
+  .brand { flex: 1; min-width: 0; }
+  .brand h1 { margin: 2px 0 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clock { font: 600 0.95rem var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+  .ring { position: relative; width: 46px; height: 46px; flex: none; }
+  .ring svg { width: 46px; height: 46px; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 4; }
+  .ring .ring-bg { stroke: var(--line); }
+  .ring .ring-fg { stroke: var(--ok); stroke-linecap: round; transition: stroke-dashoffset .4s ease; }
+  .ring span { position: absolute; inset: 0; display: grid; place-items: center; font: 700 12px var(--mono); font-variant-numeric: tabular-nums; }
+  .ticker {
+    margin-top: 10px; overflow: hidden; white-space: nowrap;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--glass);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    font: 600 11.5px/30px var(--mono); letter-spacing: .06em; text-transform: uppercase;
+  }
+  .ticker-track { display: inline-block; padding-left: 14px; animation: marquee 40s linear infinite; }
+  .ticker-track b { color: var(--signal); font-weight: 700; }
+  .ticker-track .warn { color: var(--alert); }
+  .ticker-track i { font-style: normal; color: var(--muted); padding: 0 14px; }
+  @keyframes marquee { to { transform: translateX(-50%); } }
 
-  header { padding: 20px 0 12px; }
-  h1 { font-size: 1.55rem; line-height: 1.2; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0; font-size: 1rem; }
+  /* Tool rail */
+  .rail {
+    position: absolute; z-index: 3; top: calc(var(--hud-h) + 4px);
+    right: max(12px, env(safe-area-inset-right, 0px));
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .tool {
+    position: relative; width: 54px; min-height: 54px; padding: 6px 0 5px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--glass); cursor: pointer;
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    font: 600 9px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text);
+  }
+  .tool[aria-pressed="true"] { background: var(--gps); border-color: var(--gps); color: #fff; }
+  #btnTour[aria-pressed="true"] { background: var(--signal); border-color: var(--signal); color: var(--signal-ink); }
+  .tool:disabled { opacity: .4; cursor: default; }
+  .badge { position: absolute; top: -6px; right: -6px; min-width: 22px; padding: 2px 5px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font: 700 10px var(--mono); }
+  .badge.full { background: var(--ok); color: var(--ok-ink); }
 
-  .progress {
-    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
-    background: var(--bg);
-    padding: 10px 0 12px;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 16px;
+  /* Floating readouts */
+  .telemetry {
+    position: absolute; z-index: 3; bottom: calc(var(--dock-h) - 18px);
+    left: max(12px, env(safe-area-inset-left, 0px)); max-width: calc(100% - 100px);
+    padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    font: 600 11px var(--mono); letter-spacing: .04em; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .progress-row { display: flex; flex-wrap: wrap; gap: 2px 12px; justify-content: space-between; align-items: baseline; font-weight: 600; }
-  .progress-row span:last-child { color: var(--muted); font-weight: 500; font-size: .95rem; }
-  .bar { height: 10px; border-radius: 5px; background: var(--line); margin-top: 8px; overflow: hidden; }
-  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+  .telemetry.live { color: var(--text); }
+  .telemetry.live::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--gps); margin-right: 8px; vertical-align: 1px; box-shadow: 0 0 0 3px rgba(78, 168, 255, .25); }
+  .toast {
+    position: absolute; z-index: 4; left: 50%; transform: translateX(-50%);
+    top: calc(var(--hud-h) + 4px); width: min(92%, 420px);
+    display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px;
+    border-radius: var(--radius); background: var(--glass-solid); border: 1px solid var(--ok);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .45); font-weight: 600;
+  }
+  .toast span { flex: 1; min-width: 0; }
+  .toast .act { flex: none; padding: 0 14px; }
 
-  .warn {
-    background: var(--warn-bg);
-    border: 2px solid var(--warn-line);
-    color: var(--warn-text);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    margin-bottom: 24px;
-    display: flex; gap: 12px;
+  /* Dock */
+  .dock {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+    padding-block: 26px 12px;
+    background: linear-gradient(rgba(7, 11, 15, 0), var(--ink) 34%);
   }
-  .warn strong { display: block; font-size: 1.05rem; margin-bottom: 2px; }
-  .warn .icon { font-size: 1.6rem; line-height: 1; }
+  .scrub { margin: 0 auto 10px; max-width: 760px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .scrub-head { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .scrub-head strong { font: 700 1rem var(--mono); font-variant-numeric: tabular-nums; color: var(--signal); }
+  .plan-text { flex: 1; min-width: 0; color: var(--muted); font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .link { border: 0; background: none; padding: 6px 2px; color: var(--signal); font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+  .scrub-track { position: relative; height: 46px; margin-top: 4px; }
+  #scrubCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #planTime { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; }
+  #planTime::-webkit-slider-runnable-track { height: 100%; background: transparent; }
+  #planTime::-moz-range-track { height: 100%; background: transparent; }
+  #planTime::-webkit-slider-thumb { -webkit-appearance: none; width: 4px; height: 46px; border-radius: 2px; background: var(--signal); box-shadow: 0 0 0 4px rgba(255, 181, 71, .25); }
+  #planTime::-moz-range-thumb { width: 4px; height: 46px; border: 0; border-radius: 2px; background: var(--signal); }
 
-  h2 { font-size: 1.2rem; margin: 28px 0 12px; }
+  .cards {
+    display: flex; gap: 10px; overflow-x: auto; overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory; scrollbar-width: none;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    scroll-padding-inline: 16px;
+  }
+  .cards::-webkit-scrollbar { display: none; }
+  .card {
+    flex: 0 0 min(84%, 360px); scroll-snap-align: center;
+    height: clamp(158px, 25vh, 204px); min-width: 0;
+    display: flex; flex-direction: column; gap: 4px; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--glass-solid);
+    transition: border-color .2s;
+  }
+  .card.active { border-color: rgba(255, 181, 71, .6); }
+  .card-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .idx { font: 700 11px var(--mono); color: var(--muted); }
+  .time { font: 700 12px var(--mono); color: var(--signal); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .leg { flex: 1; min-width: 0; font: 600 10.5px var(--mono); letter-spacing: .04em; color: var(--muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip { flex: none; padding: 2px 8px; border-radius: 999px; font: 700 9.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); }
+  .chip.next { background: var(--signal); border-color: var(--signal); color: var(--signal-ink); }
+  .chip.done { background: transparent; border-color: var(--ok); color: var(--ok); }
+  .card h3 { margin: 0; font-size: 1.08rem; line-height: 1.2; text-wrap: balance; }
+  .card.done h3 { color: var(--muted); }
+  .notes { flex: 1; min-height: 0; overflow-y: auto; margin: 2px 0 0; padding: 0; list-style: none; font-size: .9rem; color: var(--soft); }
+  .notes li { position: relative; padding-left: 14px; margin: 2px 0; }
+  .notes li::before { content: ""; position: absolute; left: 2px; top: .6em; width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
+  .notes li.warn { color: var(--alert); }
+  .notes li.warn::before { background: var(--alert); }
+  .card-actions { display: flex; gap: 8px; padding-top: 6px; }
+  .act {
+    flex: 1; min-width: 0; min-height: 44px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .03);
+    color: var(--text); font: 600 13px var(--ui); text-decoration: none; cursor: pointer; white-space: nowrap;
+  }
+  .act svg.i { width: 17px; height: 17px; }
+  .act.done-btn[aria-pressed="true"], .toast .act { background: var(--ok); border-color: var(--ok); color: var(--ok-ink); }
+  .act.planb { border-color: var(--alert); color: var(--alert); }
+  @media (max-width: 440px) {
+    .card-actions.crowded { gap: 6px; }
+    .card-actions.crowded .act svg.i { display: none; }
+  }
 
-  /* Timeline */
-  .timeline { list-style: none; margin: 0; padding: 0; }
-  .stop {
-    position: relative;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    margin-left: 22px;
+  /* Sheets */
+  .scrim { position: absolute; inset: 0; z-index: 5; background: rgba(0, 0, 0, .55); }
+  .sheet {
+    position: absolute; z-index: 6; left: 0; right: 0; bottom: 0; max-height: 82%;
+    margin: 0 auto; max-width: 620px; overflow-y: auto; overscroll-behavior: contain;
+    padding-block: 8px 24px;
+    padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px));
+    background: var(--glass-solid); border: 1px solid var(--line); border-bottom: 0; border-radius: 22px 22px 0 0;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, .5);
   }
-  .stop::before { /* connector dot */
-    content: ""; position: absolute; left: -29px; top: 26px;
-    width: 14px; height: 14px; border-radius: 50%;
-    background: var(--bg); border: 3px solid var(--accent);
-  }
-  .stop.done::before { background: var(--accent); }
-  .leg {
-    position: relative;
-    margin-left: 22px;
-    padding: 14px 0 14px 4px;
-    color: var(--muted);
-    font-size: .95rem;
-  }
-  .leg::before {
-    content: ""; position: absolute; left: -20px; top: 0; bottom: 0;
-    border-left: 3px dotted var(--line);
-  }
-  .toggle {
-    all: unset; box-sizing: border-box;
-    display: flex; gap: 14px; align-items: flex-start;
-    width: 100%; padding: 16px; cursor: pointer;
-    min-height: 64px; border-radius: var(--radius);
-    -webkit-tap-highlight-color: transparent;
-  }
-  .toggle:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .check {
-    flex: none; width: 34px; height: 34px; border-radius: 50%;
-    border: 2px solid var(--line); display: grid; place-items: center;
-    font-size: 1.1rem; font-weight: 700; color: transparent; margin-top: 2px;
-  }
-  .done .check { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-  .time { font-weight: 700; color: var(--accent); font-size: 1rem; }
-  .title { font-weight: 700; font-size: 1.15rem; line-height: 1.25; display: block; }
-  .done .title { text-decoration: line-through; color: var(--done); }
-  .tag {
-    display: inline-block; font-size: .78rem; font-weight: 600;
-    padding: 1px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 2px;
-    background: var(--accent-soft); color: var(--accent);
-  }
-  .addr { color: var(--muted); font-size: .95rem; display: block; margin-top: 2px; }
-  .body { padding: 0 16px 16px 64px; }
-  .done .body { opacity: .6; }
-  .body ul { margin: 0 0 12px; padding-left: 18px; }
-  .body li { margin: 4px 0; }
-  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
-  .planb { margin-top: 14px; border: 2px dashed var(--warn-line); border-radius: 12px; background: var(--warn-bg); color: var(--warn-text); }
-  .planb summary { min-height: 48px; padding: 12px 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; }
-  .planb summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .planb-intro { margin: 0 14px 12px; font-size: .95rem; }
-  .planb-opt { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px 14px; border-top: 1px solid var(--warn-line); color: var(--text); background: var(--surface); }
-  .planb-opt:last-child { border-radius: 0 0 10px 10px; }
-  .planb-opt ul { margin: 6px 0 10px; }
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    min-height: 48px; padding: 0 18px; border-radius: 12px;
-    font-weight: 600; font-size: 1rem; text-decoration: none;
-    border: 2px solid var(--accent); color: var(--accent); background: transparent;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .btn.primary { background: var(--accent); color: var(--accent-ink); }
-  .btn:active { transform: scale(.98); }
-
-  /* Pack list */
-  .pack { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .sheet-head { position: sticky; top: -8px; display: flex; align-items: center; gap: 12px; padding: 12px 0 10px; background: var(--glass-solid); }
+  .sheet-head h2 { flex: 1; margin: 0; font-size: 1.2rem; }
+  .icon-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; border: 1px solid var(--line); background: transparent; cursor: pointer; }
+  .pack { list-style: none; margin: 0; padding: 0; }
   .pack li + li { border-top: 1px solid var(--line); }
-  .pack label { display: flex; align-items: center; gap: 14px; min-height: 58px; padding: 10px 16px; cursor: pointer; }
+  .pack label { display: flex; align-items: center; gap: 14px; min-height: 58px; padding: 8px 0; cursor: pointer; }
   .pack input {
-    appearance: none; -webkit-appearance: none; flex: none;
-    width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--line);
-    display: grid; place-items: center; margin: 0; background: var(--surface);
+    appearance: none; -webkit-appearance: none; flex: none; margin: 0;
+    width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--muted);
+    display: grid; place-items: center; background: transparent;
   }
-  .pack input:checked { background: var(--accent); border-color: var(--accent); }
-  .pack input:checked::after { content: "✓"; color: var(--accent-ink); font-weight: 700; }
-  .pack input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .pack input:checked + span { color: var(--done); text-decoration: line-through; }
+  .pack input:checked { background: var(--ok); border-color: var(--ok); }
+  .pack input:checked::after { content: ""; width: 10px; height: 6px; border: solid var(--ok-ink); border-width: 0 0 2.5px 2.5px; transform: translateY(-2px) rotate(-45deg); }
+  .pack input:checked + span { color: var(--muted); text-decoration: line-through; }
   .pack small { display: block; color: var(--muted); font-size: .85rem; }
+  .alert-box { border: 1px solid var(--alert); background: var(--alert-bg); border-radius: 14px; padding: 12px 14px; margin: 4px 0 14px; }
+  .alert-box strong { display: block; color: var(--alert); margin-bottom: 2px; }
+  .sheet p { margin: 0 0 12px; color: var(--soft); }
+  .sheet h3 { margin: 18px 0 6px; font-size: 1rem; }
+  .opt { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
+  .opt .addr { color: var(--muted); font-size: .9rem; }
+  .opt ul { margin: 8px 0 10px; padding-left: 18px; color: var(--soft); }
+  .opt .card-actions { padding-top: 0; }
+  .reset { width: 100%; min-height: 48px; margin-top: 8px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; }
+  .reset.armed { border-color: var(--alert); color: var(--alert); }
+  .fine { font-size: .82rem; color: var(--muted); }
 
-  .reset-wrap { text-align: center; margin-top: 32px; }
-  .reset { all: unset; box-sizing: border-box; min-height: 48px; padding: 0 22px; border-radius: 12px; border: 2px solid var(--line); color: var(--muted); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; }
-  .reset:focus-visible { outline: 3px solid var(--accent); }
-  footer { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 20px; }
-  [hidden] { display: none !important; }
-
-  /* 3D map */
-  .mapcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-  .map-wrap { position: relative; }
-  #map { display: block; width: 100%; height: min(62vh, 480px); touch-action: none; cursor: grab; }
-  .map-btns { position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; }
-  .map-btns button {
-    all: unset; box-sizing: border-box; min-height: 44px; padding: 0 14px; border-radius: 10px;
-    background: var(--surface); color: var(--text); font-weight: 600; font-size: .9rem;
-    box-shadow: 0 1px 4px rgba(0,0,0,.3); cursor: pointer; display: inline-flex; align-items: center;
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track { animation: none; }
+    .ring .ring-fg, .card { transition: none; }
   }
-  .map-btns button[aria-pressed="true"] { background: var(--gps); color: #fff; }
-  .map-btns button:disabled { opacity: .45; cursor: default; }
-  .map-btns button:focus-visible { outline: 3px solid var(--accent); }
-  .map-hint {
-    position: absolute; left: 10px; bottom: 10px; font-size: .8rem; pointer-events: none;
-    background: rgba(0,0,0,.5); color: #fff; padding: 4px 10px; border-radius: 999px; transition: opacity .6s;
+  @media (max-height: 760px) {
+    .rail { gap: 5px; }
+    .tool { width: 46px; min-height: 42px; padding: 0; }
+    .tool span { display: none; }
   }
-  #profile { display: block; width: 100%; height: 76px; border-top: 1px solid var(--line); }
-  .map-panel { padding: 14px 16px 16px; }
-  .status { margin: 0 0 12px; font-size: 1rem; }
-  .btn.wide { width: 100%; }
-  .btn.gps-on { background: transparent; color: var(--accent); }
-  .arrive { display: flex; flex-direction: column; gap: 10px; background: var(--accent-soft); border-radius: 12px; padding: 12px; margin-bottom: 12px; font-weight: 600; }
-  .plan { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
-  .plan-row { display: flex; justify-content: space-between; align-items: center; }
-  .linkbtn { all: unset; color: var(--accent); font-weight: 700; padding: 10px 6px; cursor: pointer; }
-  .linkbtn:focus-visible { outline: 3px solid var(--accent); }
-  input[type=range] { width: 100%; height: 44px; accent-color: var(--accent); margin: 4px 0; }
-  .fine { font-size: .8rem; color: var(--muted); margin: 8px 0 0; }
+  @media (min-width: 760px) {
+    .card { flex-basis: 320px; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <h1>🐾 Mt Wilson &amp; Bilpin Day Trip</h1>
-    <p class="sub">Sunday 18 October 2026 · Us, Ann &amp; the dogs · times approximate</p>
+<div class="app" id="app">
+  <canvas id="map" role="img" aria-label="3D map of the drive from Kellyville up Bells Line of Road to Mount Wilson, with stop pins"></canvas>
+
+  <header class="hud-top" id="hudTop">
+    <div class="bar">
+      <div class="brand">
+        <span class="eyebrow">Sun 18 Oct 2026</span>
+        <h1>Mt Wilson &amp; Bilpin</h1>
+      </div>
+      <span class="clock" id="clock" aria-label="Current time"></span>
+      <div class="ring" role="img" id="ring" aria-label="0 of 6 stops done">
+        <svg viewBox="0 0 46 46" aria-hidden="true"><circle class="ring-bg" cx="23" cy="23" r="19"/><circle class="ring-fg" id="ringFg" cx="23" cy="23" r="19"/></svg>
+        <span id="ringText">0/6</span>
+      </div>
+    </div>
+    <div class="ticker" role="status"><div class="ticker-track" id="ticker"></div></div>
   </header>
 
-  <div class="progress" aria-live="polite">
-    <div class="progress-row"><span id="count">0 of 6 stops done</span><span id="next"></span></div>
-    <div class="bar"><div id="bar"></div></div>
+  <nav class="rail" aria-label="Map tools">
+    <button type="button" class="tool" id="btnGps" aria-pressed="false"></button>
+    <button type="button" class="tool" id="btnFollow" aria-pressed="false" disabled></button>
+    <button type="button" class="tool" id="btnOverview"></button>
+    <button type="button" class="tool" id="btnTour" aria-pressed="false"></button>
+    <button type="button" class="tool" id="btnPack"></button>
+    <button type="button" class="tool" id="btnInfo"></button>
+  </nav>
+
+  <div class="telemetry" id="telemetry">GPS off</div>
+  <div class="toast" id="arrive" hidden role="status">
+    <span id="arriveText"></span>
+    <button type="button" class="act" id="arriveBtn">Tick off</button>
   </div>
 
-  <div class="warn" role="note">
-    <span class="icon" aria-hidden="true">⚠️</span>
-    <div>
-      <strong>No dogs in the national park</strong>
-      Keep the dogs out of the national park around Mt Wilson, including the Cathedral of Ferns loop at Cathedral Reserve.
-    </div>
-  </div>
-
-  <h2>3D trip map</h2>
-  <section class="mapcard">
-    <div class="map-wrap">
-      <canvas id="map" role="img" aria-label="3D view of the route from Kellyville up Bells Line of Road to Mount Wilson"></canvas>
-      <div class="map-btns">
-        <button type="button" id="mapOverview">Overview</button>
-        <button type="button" id="mapFollow" aria-pressed="false" disabled>Follow me</button>
+  <section class="dock" id="dock" aria-label="Stops">
+    <div class="scrub">
+      <div class="scrub-head">
+        <span class="eyebrow">Plan</span>
+        <strong id="planClock">8:30am</strong>
+        <span class="plan-text" id="planText"></span>
+        <button type="button" class="link" id="planNow" hidden>Now</button>
       </div>
-      <div class="map-hint" id="mapHint">Drag to rotate · pinch to zoom · tap a pin</div>
-    </div>
-    <canvas id="profile" aria-hidden="true"></canvas>
-    <div class="map-panel">
-      <div class="arrive" id="arrive" hidden>
-        <span id="arriveText"></span>
-        <button type="button" class="btn primary" id="arriveBtn">Tick it off</button>
+      <div class="scrub-track">
+        <canvas id="scrubCanvas" aria-hidden="true"></canvas>
+        <input type="range" id="planTime" min="480" max="900" step="5" value="510" aria-label="Preview the plan by time of day">
       </div>
-      <p class="status" id="gpsStatus">GPS is off.</p>
-      <button type="button" class="btn primary wide" id="gpsBtn">📡 Start GPS</button>
-      <div class="plan">
-        <div class="plan-row">
-          <label for="planTime">Plan at <strong id="planClock">8:30am</strong></label>
-          <button type="button" class="linkbtn" id="planNow" hidden>Back to now</button>
-        </div>
-        <input type="range" id="planTime" min="480" max="900" step="5" value="510">
-        <p class="status" id="planStatus"></p>
-      </div>
-      <p class="fine">Offline sketch map: the road, pins and terrain are approximate, with heights exaggerated ×4. The blue dot is your real GPS position. GPS works without phone reception but uses more battery, and keeps the screen awake while on.</p>
     </div>
+    <div class="cards" id="cards"></div>
   </section>
 
-  <h2>Itinerary</h2>
-  <ol class="timeline" id="timeline"></ol>
+  <div class="scrim" id="scrim" hidden></div>
 
-  <h2>Pack list <span class="sub" id="packCount" style="font-weight:500"></span></h2>
-  <ul class="pack" id="pack"></ul>
+  <section class="sheet" id="sheetPack" role="dialog" aria-modal="true" aria-labelledby="packTitle" hidden>
+    <div class="sheet-head"><h2 id="packTitle">Pack list</h2><span class="eyebrow" id="packCount"></span><button type="button" class="icon-btn" data-close aria-label="Close"></button></div>
+    <ul class="pack" id="pack"></ul>
+  </section>
 
-  <div class="reset-wrap"><button class="reset" id="reset" type="button">Reset all ticks</button></div>
-  <footer>Works offline · ticks are saved on this phone</footer>
-</main>
+  <section class="sheet" id="sheetInfo" role="dialog" aria-modal="true" aria-labelledby="infoTitle" hidden>
+    <div class="sheet-head"><h2 id="infoTitle">Trip info</h2><button type="button" class="icon-btn" data-close aria-label="Close"></button></div>
+    <div class="alert-box"><strong>No dogs in the national park</strong>Keep the dogs out of the national park around Mt Wilson, including the Cathedral of Ferns loop at Cathedral Reserve.</div>
+    <h3>Before you leave</h3>
+    <p>Nooroo's spring 2026 opening isn't confirmed online. Call (02) 4756 2018. If it's closed, use Plan B on the Nooroo card. Book Hillbilly on (02) 4567 0965.</p>
+    <h3>Live GPS</h3>
+    <p id="gpsHelp">Tap GPS and allow location. It works without phone reception and keeps the screen awake while on, so keep the phone on a charger.</p>
+    <h3>About this map</h3>
+    <p class="fine">Offline sketch map: the road, pins and terrain are hand-placed approximations, with heights exaggerated ×4. The blue dot is your real GPS position. Drag to rotate, pinch to zoom, and tap a pin or swipe the cards to fly to a stop. Tour plays the day from 8:30am.</p>
+    <button type="button" class="reset" id="reset">Reset all ticks</button>
+  </section>
+
+  <section class="sheet" id="sheetPlanB" role="dialog" aria-modal="true" aria-labelledby="planBTitle" hidden>
+    <div class="sheet-head"><h2 id="planBTitle">Plan B if Nooroo is closed</h2><button type="button" class="icon-btn" data-close aria-label="Close"></button></div>
+    <p>Both welcome dogs on lead. Park at the Fire Station as planned; the rest of the day stays the same.</p>
+    <div id="planBList"></div>
+  </section>
+</div>
 
 <script>
 (function () {
@@ -340,49 +357,40 @@
   var NOOROO = [-33.4995, 150.3835, 1005];
 
   var stops = [
-    { id: "leave", time: "8:30am", title: "Leave Kellyville",
-      addr: "Kellyville NSW",
-      notes: ["Drive via Richmond, Kurrajong and Bells Line of Road (~1h30)."] },
-    { id: "fire", time: "10:00am", title: "Mount Wilson Fire Station",
-      addr: "47 The Avenue, Mount Wilson NSW 2786",
-      notes: ["Park here · public toilets.", "Walk ~10 min along The Avenue (Mt Wilson Village Walk) to Church Lane."] },
-    { id: "nooroo", time: "10:15–11:00am", title: "Nooroo Garden",
-      addr: "11–15 Church Ln, Mount Wilson NSW 2786",
-      phone: "0247562018", phoneLabel: "(02) 4756 2018",
-      notes: ["Spring 2026 opening isn't confirmed online. Call ahead before you leave.", "Dogs welcome on lead.", "Flat, walker-accessible paths.", "Wisteria near peak in late October.", "Entry ~$12–15pp, cards OK.", "Kiosk and toilet."],
-      planB: {
-        intro: "If Nooroo is closed, go to one of these instead. Both welcome dogs on lead. Park at the Fire Station as planned.",
-        options: [
-          { title: "Windyridge Garden", addr: "25 Queens Ave, Mount Wilson NSW 2786",
-            phone: "0247562019", phoneLabel: "(02) 4756 2019",
-            notes: ["Open every day from about 8–9am.", "Dogs welcome on lead.", "~$12.50 adult, tea, coffee and biscuits included.", "Ask about how steep the paths are for Ann."] },
-          { title: "Breenhold Gardens", addr: "29 The Avenue, Mount Wilson NSW 2786",
-            notes: ["Spring season listed to 27 October, 10am–4pm.", "Dogs on leads welcome.", "~$20 adult (2026 autumn price).", "On The Avenue, a short walk from the Fire Station."] }
-        ]
-      } },
-    { id: "hillbilly", time: "11:45am–1:30pm", title: "Hillbilly Cider Shed",
-      addr: "2230 Bells Line of Rd, Bilpin NSW 2758",
+    { id: "leave", time: "8:30am", title: "Leave Kellyville", addr: "Kellyville NSW",
+      leg: "Start",
+      notes: ["Drive via Richmond, Kurrajong and Bells Line of Road (~1h30).", "Leads, poo bags, water and bowls in the car."] },
+    { id: "fire", time: "10:00am", title: "Mount Wilson Fire Station", addr: "47 The Avenue, Mount Wilson NSW 2786",
+      leg: "Drive ~1h30",
+      notes: ["Park here. Public toilets.", "Walk ~10 min along The Avenue (Mt Wilson Village Walk) to Church Lane.",
+        { warn: "No dogs in the national park, including the Cathedral of Ferns loop." }] },
+    { id: "nooroo", time: "10:15–11:00", title: "Nooroo Garden", addr: "11–15 Church Ln, Mount Wilson NSW 2786",
+      leg: "Walk ~10 min",
+      phone: "0247562018", phoneLabel: "(02) 4756 2018", planB: true,
+      notes: [{ warn: "Spring 2026 opening isn't confirmed online. Call ahead." }, "Dogs welcome on lead.", "Flat, walker-accessible paths.",
+        "Wisteria near peak in late October.", "Entry ~$12–15pp, cards OK.", "Kiosk and toilet."] },
+    { id: "hillbilly", time: "11:45–1:30", title: "Hillbilly Cider Shed", addr: "2230 Bells Line of Rd, Bilpin NSW 2758",
+      leg: "Walk back · drive ~30 min",
       phone: "0245670965", phoneLabel: "(02) 4567 0965",
-      notes: ["Corner of Johnsons Rd.", "Lunch on the lawn with the dogs · wood-fired pizza.", "Non-alcoholic options for Ann.", "Open 10am–6pm weekends · book ahead."] },
-    { id: "bellbird", time: "1:50pm", title: "Bellbird Lookout", optional: true,
-      addr: "1183 Bells Line of Rd, Kurrajong Heights NSW 2758",
-      notes: ["Can only turn in when heading downhill/east.", "Toilets."] },
-    { id: "home", time: "~2:45pm", title: "Home to Kellyville",
-      addr: "Kellyville NSW",
-      notes: ["~45 min drive."] }
+      notes: ["Cnr Johnsons Rd.", "Lunch on the lawn with the dogs. Wood-fired pizza.", "Non-alcoholic options for Ann.", "Open 10am–6pm weekends. Book ahead."] },
+    { id: "bellbird", time: "1:50pm", title: "Bellbird Lookout", optional: true, addr: "1183 Bells Line of Rd, Kurrajong Heights NSW 2758",
+      leg: "Drive ~20 min",
+      notes: ["Only turn in when heading downhill (east).", "Toilets."] },
+    { id: "home", time: "~2:45pm", title: "Home to Kellyville", addr: "Kellyville NSW",
+      leg: "Drive ~45 min",
+      notes: ["~45 min drive home."] }
   ];
 
-  // Legs shown between stop[i] and stop[i+1]
-  var legs = [
-    "🚗 ~1h30 drive",
-    "🚶 ~10 min walk along The Avenue",
-    "🚶 ~10 min walk back to the car, then 🚗 ~30 min drive",
-    "🚗 ~20 min drive down Bells Line of Rd",
-    "🚗 ~45 min drive home"
+  var PLAN_B = [
+    { title: "Windyridge Garden", addr: "25 Queens Ave, Mount Wilson NSW 2786",
+      phone: "0247562019", phoneLabel: "(02) 4756 2019",
+      notes: ["Open every day from about 8–9am.", "Dogs welcome on lead.", "~$12.50 adult, tea, coffee and biscuits included.", "Ask how steep the paths are for Ann."] },
+    { title: "Breenhold Gardens", addr: "29 The Avenue, Mount Wilson NSW 2786",
+      notes: ["Spring season listed to 27 October, 10am–4pm.", "Dogs on leads welcome.", "~$20 adult (2026 autumn price).", "On The Avenue, a short walk from the Fire Station."] }
   ];
 
   var pack = [
-    { id: "leads", label: "Leads and poo bags", hint: "No bins at some stops — bring spare bags" },
+    { id: "leads", label: "Leads and poo bags", hint: "No bins at some stops, so bring spare bags" },
     { id: "dogwater", label: "Water and bowls for the dogs" },
     { id: "annwater", label: "Water and snacks for Ann" },
     { id: "card", label: "Card for garden entry" },
@@ -390,132 +398,215 @@
     { id: "layers", label: "Hats, sunscreen and a warm layer" }
   ];
 
+  var ICONS = {
+    gps: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+    follow: '<path d="M12 3l7 18-7-4.5L5 21z"/>',
+    overview: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+    play: '<path d="M8 5l11 7-11 7z"/>',
+    pause: '<path d="M9 5v14M15 5v14"/>',
+    pack: '<path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 6l1.5 1.5L7.5 5M3.5 12l1.5 1.5 2.5-2.5M3.5 18l1.5 1.5 2.5-2.5"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6v.4"/>',
+    phone: '<path d="M5 4h3.5l2 5-2.4 1.5a11 11 0 005.4 5.4L15 13.5l5 2V19a2 2 0 01-2 2A15 15 0 013 6a2 2 0 012-2z"/>',
+    pin: '<path d="M12 21s-6.5-6-6.5-11.5a6.5 6.5 0 0113 0C18.5 15 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.3"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+    close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    swap: '<path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"/>'
+  };
+  function icon(name) { return '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' + ICONS[name] + "</svg>"; }
+
   var state = { stops: {}, pack: {} };
   try {
     var saved = JSON.parse(localStorage.getItem(KEY));
-    if (saved && typeof saved === "object") {
-      state.stops = saved.stops || {};
-      state.pack = saved.pack || {};
-    }
+    if (saved && typeof saved === "object") { state.stops = saved.stops || {}; state.pack = saved.pack || {}; }
   } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
 
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
-  }
-
+  function $(id) { return document.getElementById(id); }
   function el(tag, attrs, children) {
     var n = document.createElement(tag);
     if (attrs) for (var k in attrs) {
       if (k === "text") n.textContent = attrs[k];
+      else if (k === "html") n.innerHTML = attrs[k];
       else if (k === "class") n.className = attrs[k];
       else n.setAttribute(k, attrs[k]);
     }
     (children || []).forEach(function (c) { if (c) n.appendChild(c); });
     return n;
   }
-
-  function mapsUrl(addr) {
-    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr);
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function mapsUrl(addr) { return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr); }
+  function noteItem(t) { return typeof t === "string" ? el("li", { text: t }) : el("li", { class: "warn", text: t.warn }); }
+  function linkBtn(href, iconName, label) {
+    var a = el("a", { class: "act", href: href, html: icon(iconName) + "<span>" + esc(label) + "</span>" });
+    if (href.indexOf("http") === 0) { a.target = "_blank"; a.rel = "noopener"; }
+    return a;
   }
 
-  function planBox(b) {
-    var box = el("details", { class: "planb" }, [
-      el("summary", { text: "Plan B if it's closed" }),
-      el("p", { class: "planb-intro", text: b.intro })
-    ]);
-    b.options.forEach(function (o) {
-      var acts = [el("a", { class: "btn", href: mapsUrl(o.addr), target: "_blank", rel: "noopener", text: "📍 Open in Maps" })];
-      if (o.phone) acts.unshift(el("a", { class: "btn primary", href: "tel:" + o.phone, text: "📞 Call " + o.phoneLabel }));
-      box.appendChild(el("div", { class: "planb-opt" }, [
-        el("strong", { text: o.title }),
-        el("span", { class: "addr", text: o.addr }),
-        el("ul", null, o.notes.map(function (t) { return el("li", { text: t }); })),
-        el("div", { class: "actions" }, acts)
-      ]));
-    });
-    return box;
+  // ---------- Tool rail ----------
+  function setTool(id, iconName, label) {
+    var b = $(id), badge = b.querySelector(".badge");
+    b.innerHTML = icon(iconName) + "<span>" + label + "</span>";
+    b.setAttribute("aria-label", label);
+    if (badge) b.appendChild(badge);
   }
+  setTool("btnGps", "gps", "GPS");
+  setTool("btnFollow", "follow", "Follow");
+  setTool("btnOverview", "overview", "Overview");
+  setTool("btnTour", "play", "Tour");
+  setTool("btnPack", "pack", "Pack");
+  $("btnPack").appendChild(el("b", { class: "badge", id: "packBadge", text: "0/6" }));
+  setTool("btnInfo", "info", "Info");
+  Array.prototype.forEach.call(document.querySelectorAll("[data-close]"), function (b) { b.innerHTML = icon("close"); });
 
-  var timeline = document.getElementById("timeline");
+  // ---------- Sheets ----------
+  var openSheet = null;
+  function showSheet(id) {
+    if (openSheet) openSheet.hidden = true;
+    openSheet = $(id); openSheet.hidden = false; $("scrim").hidden = false;
+    var c = openSheet.querySelector("[data-close]"); if (c) c.focus();
+  }
+  function closeSheet() { if (openSheet) openSheet.hidden = true; openSheet = null; $("scrim").hidden = true; }
+  $("scrim").addEventListener("click", closeSheet);
+  Array.prototype.forEach.call(document.querySelectorAll("[data-close]"), function (b) { b.addEventListener("click", closeSheet); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeSheet(); });
+  $("btnPack").addEventListener("click", function () { showSheet("sheetPack"); });
+  $("btnInfo").addEventListener("click", function () { showSheet("sheetInfo"); });
+
+  // ---------- Stop cards ----------
+  var cardsEl = $("cards"), cardById = {};
   stops.forEach(function (s, i) {
-    var title = el("span", { class: "title", text: s.title });
-    if (s.optional) title.appendChild(el("span", { class: "tag", text: "Optional" }));
-
-    var toggle = el("button", { class: "toggle", type: "button", "aria-pressed": "false" }, [
-      el("span", { class: "check", "aria-hidden": "true", text: "✓" }),
-      el("span", null, [
+    var doneBtn = el("button", { type: "button", class: "act done-btn", "aria-pressed": "false", html: icon("check") + "<span>Done</span>" });
+    doneBtn.addEventListener("click", function () { state.stops[s.id] = !state.stops[s.id]; save(); render(); });
+    var acts = [doneBtn];
+    if (s.phone) acts.push(linkBtn("tel:" + s.phone, "phone", "Call"));
+    acts.push(linkBtn(mapsUrl(s.addr), "pin", "Maps"));
+    if (s.planB) {
+      var pb = el("button", { type: "button", class: "act planb", html: icon("swap") + "<span>Plan B</span>" });
+      pb.addEventListener("click", function () { showSheet("sheetPlanB"); });
+      acts.push(pb);
+    }
+    var title = s.title + (s.optional ? " (optional)" : "");
+    var notes = el("ul", { class: "notes" }, s.notes.map(noteItem));
+    if (s.phone) notes.appendChild(el("li", { text: "Phone " + s.phoneLabel }));
+    var card = el("article", { class: "card", "data-id": s.id, "aria-label": s.time + " " + title }, [
+      el("div", { class: "card-top" }, [
+        el("span", { class: "idx", text: "0" + (i + 1) }),
         el("span", { class: "time", text: s.time }),
-        title,
-        el("span", { class: "addr", text: s.addr })
-      ])
+        el("span", { class: "leg", text: s.leg }),
+        el("span", { class: "chip" })
+      ]),
+      el("h3", { text: title }),
+      notes,
+      el("div", { class: "card-actions" + (acts.length > 3 ? " crowded" : "") }, acts)
     ]);
-
-    var actions = [el("a", { class: "btn" + (s.phone ? "" : " primary"), href: mapsUrl(s.addr), target: "_blank", rel: "noopener", text: "📍 Open in Maps" })];
-    if (s.phone) actions.unshift(el("a", { class: "btn primary", href: "tel:" + s.phone, text: "📞 Call " + s.phoneLabel }));
-
-    var body = el("div", { class: "body" }, [
-      el("ul", null, s.notes.map(function (t) { return el("li", { text: t }); })),
-      el("div", { class: "actions" }, actions),
-      s.planB ? planBox(s.planB) : null
-    ]);
-
-    var li = el("li", { class: "stop", "data-id": s.id }, [toggle, body]);
-    toggle.addEventListener("click", function () {
-      state.stops[s.id] = !state.stops[s.id];
-      save(); render();
-    });
-    timeline.appendChild(li);
-
-    if (i < legs.length) timeline.appendChild(el("li", { class: "leg", text: legs[i] }));
+    card.addEventListener("click", function (e) { if (!e.target.closest(".act")) selectStop(s.id, { fly: true, scroll: true }); });
+    cardById[s.id] = card;
+    cardsEl.appendChild(card);
   });
 
-  var packEl = document.getElementById("pack");
+  // Plan B sheet
+  PLAN_B.forEach(function (o) {
+    var acts = [];
+    if (o.phone) acts.push(linkBtn("tel:" + o.phone, "phone", "Call " + o.phoneLabel));
+    acts.push(linkBtn(mapsUrl(o.addr), "pin", "Open in Maps"));
+    $("planBList").appendChild(el("div", { class: "opt" }, [
+      el("strong", { text: o.title }),
+      el("div", { class: "addr", text: o.addr }),
+      el("ul", null, o.notes.map(function (t) { return el("li", { text: t }); })),
+      el("div", { class: "card-actions" }, acts)
+    ]));
+  });
+
+  // Pack sheet
   pack.forEach(function (p) {
     var input = el("input", { type: "checkbox", id: "p-" + p.id });
-    input.checked = !!state.pack[p.id];
-    input.addEventListener("change", function () {
-      state.pack[p.id] = input.checked;
-      save(); render();
-    });
+    input.addEventListener("change", function () { state.pack[p.id] = input.checked; save(); render(); });
     var text = el("span", { text: p.label });
     if (p.hint) text.appendChild(el("small", { text: p.hint }));
-    packEl.appendChild(el("li", null, [el("label", { for: "p-" + p.id }, [input, text])]));
+    $("pack").appendChild(el("li", null, [el("label", { for: "p-" + p.id }, [input, text])]));
   });
 
+  // Selecting a stop: highlight its card and optionally fly the map to it
+  var activeId = null, programmaticScroll = 0;
+  function scrollToCard(id, smooth) {
+    var c = cardById[id];
+    programmaticScroll = Date.now();
+    cardsEl.scrollTo({ left: c.offsetLeft - (cardsEl.clientWidth - c.offsetWidth) / 2, behavior: smooth ? "smooth" : "auto" });
+  }
+  function selectStop(id, opt) {
+    activeId = id;
+    stops.forEach(function (s) { cardById[s.id].classList.toggle("active", s.id === id); });
+    if (opt && opt.scroll) scrollToCard(id, true);
+    if (opt && opt.fly) map.flyToStop(id);
+    if (map) map.update();
+  }
+  var scrollTimer = null;
+  cardsEl.addEventListener("scroll", function () {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(function () {
+      if (Date.now() - programmaticScroll < 900) return;
+      var mid = cardsEl.scrollLeft + cardsEl.clientWidth / 2, best = null, bd = Infinity;
+      stops.forEach(function (s) {
+        var c = cardById[s.id], d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
+        if (d < bd) { bd = d; best = s.id; }
+      });
+      if (best && best !== activeId) selectStop(best, { fly: true });
+    }, 140);
+  }, { passive: true });
+  cardsEl.addEventListener("pointerdown", function () { if (map) map.stopTour(); });
+
+  function nextStop() {
+    for (var k = 0; k < stops.length; k++) if (!state.stops[stops[k].id]) return stops[k];
+    return null;
+  }
+
+  // ---------- Ticker ----------
+  var tickerHtml = "";
+  function setTicker(items) {
+    var html = items.join("<i>◆</i>") + "<i>◆</i>";
+    if (html === tickerHtml) return;
+    tickerHtml = html;
+    var t = $("ticker");
+    t.innerHTML = html + html;
+    t.style.animationDuration = Math.max(20, t.textContent.length * 0.11) + "s";
+  }
+
   function render() {
-    var done = 0, next = null;
+    var done = 0, next = nextStop();
     stops.forEach(function (s) {
-      var on = !!state.stops[s.id];
-      if (on) done++; else if (!next) next = s;
-      var li = timeline.querySelector('[data-id="' + s.id + '"]');
-      li.classList.toggle("done", on);
-      li.querySelector(".toggle").setAttribute("aria-pressed", on ? "true" : "false");
+      var on = !!state.stops[s.id], card = cardById[s.id], chip = card.querySelector(".chip");
+      var isNext = !!next && next.id === s.id;
+      if (on) done++;
+      card.classList.toggle("done", on);
+      card.querySelector(".done-btn").setAttribute("aria-pressed", on ? "true" : "false");
+      chip.className = "chip" + (on ? " done" : isNext ? " next" : "");
+      chip.textContent = on ? "Done" : isNext ? "Next" : s.optional ? "Optional" : "Later";
     });
-    document.getElementById("count").textContent = done + " of " + stops.length + " stops done";
-    document.getElementById("next").textContent = next ? "Next: " + next.title : "All done 🎉";
-    document.getElementById("bar").style.width = (done / stops.length * 100) + "%";
+    var C = 2 * Math.PI * 19, fg = $("ringFg");
+    fg.style.strokeDasharray = C;
+    fg.style.strokeDashoffset = C * (1 - done / stops.length);
+    $("ringText").textContent = done + "/" + stops.length;
+    $("ring").setAttribute("aria-label", done + " of " + stops.length + " stops done");
 
     var packed = 0;
-    pack.forEach(function (p) {
-      var on = !!state.pack[p.id];
-      if (on) packed++;
-      document.getElementById("p-" + p.id).checked = on;
-    });
-    document.getElementById("packCount").textContent = "· " + packed + "/" + pack.length + " packed";
+    pack.forEach(function (p) { var on = !!state.pack[p.id]; if (on) packed++; $("p-" + p.id).checked = on; });
+    $("packBadge").textContent = packed + "/" + pack.length;
+    $("packBadge").classList.toggle("full", packed === pack.length);
+    $("packCount").textContent = packed + " of " + pack.length + " packed";
     if (map) map.update();
   }
 
   // ---------- 3D map ----------
   var map = (function () {
-    var canvas = document.getElementById("map"), ctx = canvas.getContext("2d");
+    var canvas = $("map"), ctx = canvas.getContext("2d");
     var layer = document.createElement("canvas"), lctx = layer.getContext("2d");
-    var prof = document.getElementById("profile"), pctx = prof.getContext("2d");
-    var gpsBtn = document.getElementById("gpsBtn"), followBtn = document.getElementById("mapFollow");
-    var gpsStatusEl = document.getElementById("gpsStatus"), arriveEl = document.getElementById("arrive");
-    var slider = document.getElementById("planTime"), planNowBtn = document.getElementById("planNow");
-    var hintEl = document.getElementById("mapHint");
-    var FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    var scrub = $("scrubCanvas"), sctx = scrub.getContext("2d");
+    var slider = $("planTime");
+    var MONO = 'ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace';
     var DEG = Math.PI / 180, EX = 4, NEAR = 300;
+    var cs = getComputedStyle(document.documentElement);
+    function tok(n) { return cs.getPropertyValue(n).trim(); }
+    var T = { signal: tok("--signal"), ok: tok("--ok"), gps: tok("--gps"), text: tok("--text"), muted: tok("--muted"), ink: tok("--ink") };
 
     // Flat local projection in metres around the middle of the route
     var LAT0 = -33.6, LON0 = 150.66;
@@ -531,8 +622,7 @@
       road.push(p);
       if (r[3]) tagIdx[r[3]] = i;
     });
-    var ROAD_LEN = along;
-    var noo = toXY(NOOROO[0], NOOROO[1]); noo.e = NOOROO[2]; noo.s = ROAD_LEN;
+    var noo = toXY(NOOROO[0], NOOROO[1]); noo.e = NOOROO[2]; noo.s = along;
     var stopPos = {
       leave: road[0], home: road[0], fire: road[tagIdx.fire], nooroo: noo,
       hillbilly: road[tagIdx.hillbilly], bellbird: road[tagIdx.bellbird]
@@ -562,7 +652,7 @@
       return Math.max(5, e + drop * (bumps - gorge));
     }
 
-    var RAMP = [[0, [176, 196, 128]], [150, [128, 166, 96]], [450, [82, 132, 86]], [800, [60, 108, 92]], [1100, [140, 132, 104]]];
+    var RAMP = [[0, [26, 44, 48]], [200, [30, 60, 60]], [500, [34, 78, 70]], [850, [44, 92, 78]], [1100, [92, 104, 88]]];
     function ramp(h) {
       for (var k = 1; k < RAMP.length; k++) if (h <= RAMP[k][0]) {
         var a = RAMP[k - 1], b = RAMP[k], t = (h - a[0]) / (b[0] - a[0]);
@@ -583,7 +673,7 @@
       var a = verts[ia], b = verts[ib], c = verts[ic], d = verts[id];
       var ux = c.x - a.x, uy = c.y - a.y, uz = c.z - a.z, vx = d.x - b.x, vy = d.y - b.y, vz = d.z - b.z;
       var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = Math.hypot(nx, ny, nz) * (nz < 0 ? -1 : 1);
-      var shade = 0.55 + 0.5 * Math.max(0, (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
+      var shade = 0.6 + 0.6 * Math.max(0, (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
       quads.push({ v: [ia, ib, ic, id], rgb: ramp((a.h + b.h + c.h + d.h) / 4).map(function (v) { return v * shade; }) });
     }
 
@@ -605,11 +695,11 @@
 
     var TOWNS = [[7, "Windsor"], [9, "Richmond"], [14, "Kurrajong"], [21, "Bilpin"], [24, "Mt Tomah"]];
     var PINS = [
-      { ids: ["leave", "home"], num: "1·6", label: "Kellyville", stem: 34 },
-      { ids: ["fire"], num: "2", label: "Fire Station · park", stem: 30 },
-      { ids: ["nooroo"], num: "3", label: "Nooroo Garden", stem: 64 },
-      { ids: ["hillbilly"], num: "4", label: "Hillbilly Cider", stem: 40 },
-      { ids: ["bellbird"], num: "5", label: "Bellbird Lookout", stem: 40 }
+      { ids: ["leave", "home"], num: "1·6", label: "Kellyville", stem: 30 },
+      { ids: ["fire"], num: "2", label: "Fire Station", stem: 26 },
+      { ids: ["nooroo"], num: "3", label: "Nooroo Garden", stem: 58 },
+      { ids: ["hillbilly"], num: "4", label: "Hillbilly Cider", stem: 36 },
+      { ids: ["bellbird"], num: "5", label: "Bellbird Lookout", stem: 36 }
     ];
 
     // ---- The day's plan, as positions over time (minutes after midnight) ----
@@ -620,18 +710,19 @@
     }
     var FI = tagIdx.fire, HB = tagIdx.hillbilly, BB = tagIdx.bellbird;
     var PLAN = [
-      { t0: 0, t1: 510, at: road[0], icon: "🏠", text: "At home in Kellyville, getting ready" },
-      { t0: 510, t1: 600, path: slice(0, FI), icon: "🚗", text: "Driving up Bells Line of Road to Mt Wilson" },
-      { t0: 600, t1: 615, path: [stopPos.fire, noo], icon: "🐾", text: "Walking along The Avenue to Nooroo" },
-      { t0: 615, t1: 660, at: noo, icon: "🌸", text: "Exploring Nooroo Garden" },
-      { t0: 660, t1: 670, path: [noo, stopPos.fire], icon: "🐾", text: "Walking back to the car" },
-      { t0: 670, t1: 705, path: slice(FI, HB), icon: "🚗", text: "Driving to Hillbilly Cider Shed" },
-      { t0: 705, t1: 810, at: road[HB], icon: "🍕", text: "Lunch on the lawn at Hillbilly" },
-      { t0: 810, t1: 830, path: slice(HB, BB), icon: "🚗", text: "Driving down to Bellbird Lookout" },
-      { t0: 830, t1: 840, at: road[BB], icon: "👀", text: "Bellbird Lookout (optional)" },
-      { t0: 840, t1: 885, path: slice(BB, 0), icon: "🚗", text: "Driving home" },
-      { t0: 885, t1: 1441, at: road[0], icon: "🏠", text: "Home in Kellyville" }
+      { t0: 0, t1: 510, at: road[0], stop: "leave", text: "At home in Kellyville, getting ready" },
+      { t0: 510, t1: 600, path: slice(0, FI), stop: "fire", text: "Driving up Bells Line of Road" },
+      { t0: 600, t1: 615, path: [stopPos.fire, noo], stop: "nooroo", walk: true, text: "Walking along The Avenue" },
+      { t0: 615, t1: 660, at: noo, stop: "nooroo", walk: true, text: "Exploring Nooroo Garden" },
+      { t0: 660, t1: 670, path: [noo, stopPos.fire], stop: "nooroo", walk: true, text: "Walking back to the car" },
+      { t0: 670, t1: 705, path: slice(FI, HB), stop: "hillbilly", text: "Driving to Hillbilly" },
+      { t0: 705, t1: 810, at: road[HB], stop: "hillbilly", text: "Lunch on the lawn at Hillbilly" },
+      { t0: 810, t1: 830, path: slice(HB, BB), stop: "bellbird", text: "Driving down to Bellbird Lookout" },
+      { t0: 830, t1: 840, at: road[BB], stop: "bellbird", text: "Bellbird Lookout (optional)" },
+      { t0: 840, t1: 885, path: slice(BB, 0), stop: "home", text: "Driving home" },
+      { t0: 885, t1: 1441, at: road[0], stop: "home", text: "Home in Kellyville" }
     ];
+    var STOP_TIMES = [[510, 0], [600, 1], [615, 2], [705, 3], [830, 4], [885, 5]];
     function onPath(path, f) {
       var lens = [], total = 0, k;
       for (k = 0; k < path.length - 1; k++) { lens.push(Math.hypot(path[k + 1].x - path[k].x, path[k + 1].y - path[k].y)); total += lens[k]; }
@@ -639,7 +730,7 @@
       for (k = 0; k < lens.length; k++) {
         if (left <= lens[k] || k === lens.length - 1) {
           var t = lens[k] ? clamp(left / lens[k], 0, 1) : 0, p = path[k], q = path[k + 1];
-          return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, e: p.e + (q.e - p.e) * t, s: p.s + (q.s - p.s) * t };
+          return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, e: p.e + (q.e - p.e) * t };
         }
         left -= lens[k];
       }
@@ -649,74 +740,48 @@
       var seg = PLAN[PLAN.length - 1];
       for (var k = 0; k < PLAN.length; k++) if (min >= PLAN[k].t0 && min < PLAN[k].t1) { seg = PLAN[k]; break; }
       var p = seg.at || onPath(seg.path, (min - seg.t0) / (seg.t1 - seg.t0));
-      return { x: p.x, y: p.y, z: p.e * EX + LIFT, e: p.e, s: p.s, icon: seg.icon, text: seg.text };
+      return { x: p.x, y: p.y, z: p.e * EX + LIFT, e: p.e, text: seg.text, stop: seg.stop, walk: !!seg.walk };
     }
     function clock(min) {
       min = Math.floor(min);
       var h = Math.floor(min / 60), m = min % 60;
       return (((h + 11) % 12) + 1) + ":" + (m < 10 ? "0" : "") + m + (h >= 12 ? "pm" : "am");
     }
-    function nextStop() {
-      for (var k = 0; k < stops.length; k++) if (!state.stops[stops[k].id]) return stops[k];
-      return null;
-    }
-
-    // ---- Theme ----
-    var theme;
-    function hexRgb(h) {
-      var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(h);
-      return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [238, 242, 239];
-    }
-    function isDark() {
-      var t = document.documentElement.getAttribute("data-theme");
-      if (t) return t === "dark";
-      return !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
-    }
-    function readTheme() {
-      var cs = getComputedStyle(document.documentElement);
-      function v(n) { return cs.getPropertyValue(n).trim(); }
-      theme = {
-        dark: isDark(),
-        skyTop: v("--sky-top"), skyBottom: v("--sky-bottom"), fog: hexRgb(v("--sky-bottom")),
-        road: v("--road"), casing: v("--road-casing"), gps: v("--gps"), text: v("--text"),
-        surface: v("--surface"), muted: v("--muted"), accent: v("--accent"), line: v("--line")
-      };
-    }
 
     // ---- Camera ----
-    var OVERVIEW = { tx: (W0 + E0) / 2, ty: (S0 + N0) / 2, tz: 1200, yaw: 315, pitch: 42, dist: 70000 };
+    var OVERVIEW = { tx: (W0 + E0) / 2, ty: (S0 + N0) / 2, tz: 1200, yaw: 315, pitch: 44, dist: 72000 };
     function copy(o) { var r = {}; for (var k in o) r[k] = o[k]; return r; }
     var cam = copy(OVERVIEW), goal = copy(OVERVIEW);
-    var P = { W: 0, H: 0, F: 1, cy: 1, sy: 0, cp: 1, sp: 0 }, dpr = 1;
+    var P = { W: 0, H: 0, F: 1, ox: 0, oy: 0, cy: 1, sy: 0, cp: 1, sp: 0 }, dpr = 1;
     function setup() {
       P.cy = Math.cos(cam.yaw * DEG); P.sy = Math.sin(cam.yaw * DEG);
       P.cp = Math.cos(cam.pitch * DEG); P.sp = Math.sin(cam.pitch * DEG);
-      P.F = Math.max(P.W, P.H * 0.8) * 1.15;
     }
     function project(x, y, z) {
       var px = x - cam.tx, py = y - cam.ty, pz = z - cam.tz;
       var xr = px * P.cy - py * P.sy, yr = px * P.sy + py * P.cy;
       var d = yr * P.cp - pz * P.sp + cam.dist, up = yr * P.sp + pz * P.cp;
-      return { x: P.W / 2 + xr * P.F / d, y: P.H * 0.5 - up * P.F / d, d: d };
+      return { x: P.ox + xr * P.F / d, y: P.oy - up * P.F / d, d: d };
     }
     function stepCamera() {
       var moved = false;
       ["tx", "ty", "tz", "pitch", "dist"].forEach(function (k) {
         var diff = goal[k] - cam[k], eps = k === "pitch" ? 0.05 : k === "dist" ? cam.dist * 0.001 : 2;
-        if (Math.abs(diff) > eps) { cam[k] += diff * 0.18; moved = true; } else cam[k] = goal[k];
+        if (Math.abs(diff) > eps) { cam[k] += diff * 0.14; moved = true; } else cam[k] = goal[k];
       });
       var dy = ((goal.yaw - cam.yaw + 540) % 360) - 180;
-      if (Math.abs(dy) > 0.05) { cam.yaw = (cam.yaw + dy * 0.18 + 360) % 360; moved = true; } else cam.yaw = goal.yaw;
+      if (Math.abs(dy) > 0.05) { cam.yaw = (cam.yaw + dy * 0.14 + 360) % 360; moved = true; } else cam.yaw = goal.yaw;
       return moved;
     }
     function focusOn(x, y, z, dist) {
-      goal.tx = x; goal.ty = y; goal.tz = z; goal.dist = dist; goal.pitch = Math.max(goal.pitch, 38);
+      goal.tx = x; goal.ty = y; goal.tz = z; goal.dist = dist; goal.pitch = Math.max(goal.pitch, 46);
     }
 
     // ---- Drawing ----
-    function strokePath(g, pts, width, color, dash) {
+    function strokePath(g, pts, width, color, dash, glow) {
       g.setLineDash(dash || []); g.lineWidth = width; g.strokeStyle = color;
       g.lineJoin = "round"; g.lineCap = "round";
+      g.shadowColor = glow || "transparent"; g.shadowBlur = glow ? 14 : 0;
       g.beginPath();
       var pen = false;
       pts.forEach(function (p) {
@@ -724,15 +789,16 @@
         if (s.d < NEAR) { pen = false; return; }
         if (pen) g.lineTo(s.x, s.y); else { g.moveTo(s.x, s.y); pen = true; }
       });
-      g.stroke(); g.setLineDash([]);
+      g.stroke(); g.setLineDash([]); g.shadowBlur = 0;
     }
+    var BG = [7, 11, 15];
     function renderLayer() {
       setup();
       var g = lctx;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      var sky = g.createLinearGradient(0, 0, 0, P.H);
-      sky.addColorStop(0, theme.skyTop); sky.addColorStop(1, theme.skyBottom);
-      g.fillStyle = sky; g.fillRect(0, 0, P.W, P.H);
+      var bg = g.createRadialGradient(P.ox, P.oy, 0, P.ox, P.oy, Math.max(P.W, P.H) * 0.8);
+      bg.addColorStop(0, "#132029"); bg.addColorStop(1, T.ink);
+      g.fillStyle = bg; g.fillRect(0, 0, P.W, P.H);
 
       var pv = verts.map(function (v) { return project(v.x, v.y, v.z); });
       var items = [];
@@ -742,47 +808,50 @@
         items.push({ d: (a.d + b.d + c.d + d.d) / 4, q: q, p: [a, b, c, d] });
       });
       items.sort(function (m, n) { return n.d - m.d; });
-      var dim = theme.dark ? 0.62 : 1, fog = theme.fog;
       items.forEach(function (it) {
-        var f = clamp((it.d - 15000) / 110000, 0, 0.55), rgb = it.q.rgb;
-        var col = "rgb(" + [0, 1, 2].map(function (k) { return Math.round(rgb[k] * dim + (fog[k] - rgb[k] * dim) * f); }).join(",") + ")";
-        g.fillStyle = col; g.strokeStyle = col; g.lineWidth = 0.7;
+        var f = clamp((it.d - 15000) / 110000, 0, 0.6), rgb = it.q.rgb;
+        var mix = [0, 1, 2].map(function (k) { return Math.round(rgb[k] + (BG[k] - rgb[k]) * f); });
+        g.fillStyle = "rgb(" + mix.join(",") + ")";
+        g.strokeStyle = "rgba(140,200,210," + (0.16 * (1 - f)).toFixed(3) + ")";
+        g.lineWidth = 0.7;
         g.beginPath();
         g.moveTo(it.p[0].x, it.p[0].y); g.lineTo(it.p[1].x, it.p[1].y);
         g.lineTo(it.p[2].x, it.p[2].y); g.lineTo(it.p[3].x, it.p[3].y);
         g.closePath(); g.fill(); g.stroke();
       });
 
-      var w = clamp(P.F * 150 / cam.dist, 3, 8);
-      strokePath(g, roadDense, w + 3, theme.casing);
-      strokePath(g, roadDense, w, theme.road);
-      strokePath(g, walkDense, w * 0.8, theme.road, [w * 0.6, w * 1.4]);
+      var w = clamp(P.F * 150 / cam.dist, 2.5, 7);
+      strokePath(g, roadDense, w + 3, "rgba(7,11,15,.85)");
+      strokePath(g, roadDense, w, T.signal, null, "rgba(255,181,71,.7)");
+      strokePath(g, walkDense, w * 0.8, T.ok, [w * 0.5, w * 1.4]);
     }
 
-    var hits = [];
-    function label(text, x, y, size, weight) {
-      ctx.font = weight + " " + size + "px " + FONT;
+    function chip(text, x, y, color, strong) {
+      ctx.font = "700 10.5px " + MONO;
       ctx.textBaseline = "middle"; ctx.textAlign = "left";
-      var tw = ctx.measureText(text).width;
-      ctx.fillStyle = theme.surface; ctx.globalAlpha = 0.92;
+      var tw = ctx.measureText(text).width, h = 20;
+      ctx.fillStyle = "rgba(12,18,24,.88)";
+      ctx.strokeStyle = strong ? color : "rgba(150,185,205,.25)"; ctx.lineWidth = 1;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(x, y - size * 0.85, tw + 12, size * 1.7, size * 0.85); else ctx.rect(x, y - size * 0.85, tw + 12, size * 1.7);
-      ctx.fill(); ctx.globalAlpha = 1;
-      ctx.fillStyle = theme.text; ctx.fillText(text, x + 6, y + 0.5);
+      if (ctx.roundRect) ctx.roundRect(x, y - h / 2, tw + 14, h, 6); else ctx.rect(x, y - h / 2, tw + 14, h);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = strong ? color : T.text; ctx.fillText(text, x + 7, y + 0.5);
     }
+    var hits = [];
     function drawOverlay(ts) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(layer, 0, 0);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       setup();
+      var pulse = (ts % 1800) / 1800;
 
       // Town names
-      TOWNS.forEach(function (t) {
+      if (cam.dist < 95000) TOWNS.forEach(function (t) {
         var p = road[t[0]], s = project(p.x, p.y, p.e * EX + LIFT);
-        if (s.d < NEAR || cam.dist > 90000) return;
-        ctx.font = "600 11px " + FONT; ctx.textAlign = "center"; ctx.textBaseline = "top";
-        ctx.lineWidth = 3; ctx.strokeStyle = theme.surface; ctx.strokeText(t[1], s.x, s.y + 7);
-        ctx.fillStyle = theme.muted; ctx.fillText(t[1], s.x, s.y + 7);
+        if (s.d < NEAR) return;
+        ctx.font = "600 10px " + MONO; ctx.textAlign = "center"; ctx.textBaseline = "top";
+        ctx.fillStyle = "rgba(142,159,171,.9)";
+        ctx.fillText(t[1].toUpperCase(), s.x, s.y + 8);
       });
 
       // Stop pins, far ones first
@@ -790,126 +859,141 @@
       hits = [];
       PINS.map(function (pin) {
         var p = stopPos[pin.ids[0]];
-        return { pin: pin, p: p, s: project(p.x, p.y, p.e * EX + LIFT) };
+        return { pin: pin, s: project(p.x, p.y, p.e * EX + LIFT) };
       }).filter(function (o) { return o.s.d > NEAR; })
         .sort(function (m, n) { return n.s.d - m.s.d; })
         .forEach(function (o) {
           var pin = o.pin, s = o.s;
           var done = pin.ids.every(function (id) { return state.stops[id]; });
           var isNext = !!next && pin.ids.indexOf(next.id) >= 0;
-          var col = done ? "#8a8f93" : isNext ? "#d4621b" : "#2f7a52", r = isNext ? 15 : 13, top = s.y - pin.stem;
-          ctx.fillStyle = "rgba(0,0,0,.3)";
-          ctx.beginPath(); ctx.ellipse(s.x, s.y, 6, 2.5, 0, 0, 7); ctx.fill();
-          ctx.strokeStyle = col; ctx.lineWidth = 2.5;
-          ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x, top); ctx.stroke();
-          ctx.fillStyle = col; ctx.strokeStyle = "#fff";
+          var isActive = pin.ids.indexOf(activeId) >= 0;
+          var col = done ? T.ok : isNext ? T.signal : "#d5e0e7";
+          var top = s.y - pin.stem, r = isActive ? 13 : 11;
+          ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.8;
+          ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x, top + r); ctx.stroke();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = col; ctx.beginPath(); ctx.arc(s.x, s.y, 2.5, 0, 7); ctx.fill();
+          if (isNext && !done) {
+            ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.globalAlpha = 1 - pulse;
+            ctx.beginPath(); ctx.arc(s.x, top, r + 4 + 12 * pulse, 0, 7); ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
+          ctx.fillStyle = "#0c1218"; ctx.strokeStyle = col; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.arc(s.x, top, r, 0, 7); ctx.fill(); ctx.stroke();
-          ctx.fillStyle = "#fff"; ctx.font = "700 " + (pin.num.length > 1 && !done ? 10 : 13) + "px " + FONT;
+          ctx.fillStyle = col; ctx.font = "700 " + (pin.num.length > 1 ? 9 : 11) + "px " + MONO;
           ctx.textAlign = "center"; ctx.textBaseline = "middle";
           ctx.fillText(done ? "✓" : pin.num, s.x, top + 0.5);
-          label(pin.label, s.x + r + 5, top, 12, isNext ? "700" : "600");
-          hits.push({ x: s.x, y: top, p: o.p });
+          chip(pin.label.toUpperCase(), s.x + r + 5, top, col, isActive || isNext);
+          hits.push({ x: s.x, y: top, id: isNext ? next.id : pin.ids[0] });
         });
 
       // Where the plan says we are
       var pl = planAt(planMin), ps = project(pl.x, pl.y, pl.z);
       if (ps.d > NEAR) {
-        ctx.fillStyle = theme.surface; ctx.strokeStyle = theme.road; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(ps.x, ps.y - 4, 15, 0, 7); ctx.fill(); ctx.stroke();
-        ctx.font = "16px " + FONT; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(pl.icon, ps.x, ps.y - 3);
+        ctx.save(); ctx.translate(ps.x, ps.y); ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = "#0c1218"; ctx.strokeStyle = T.signal; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.rect(-7, -7, 14, 14); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = T.signal; ctx.beginPath(); ctx.rect(-2.5, -2.5, 5, 5); ctx.fill();
+        ctx.restore();
+        chip("PLAN " + clock(planMin).toUpperCase(), ps.x + 13, ps.y + 16, T.signal, true);
       }
 
       // Live GPS dot
       if (fix) {
         var gs = project(fix.x, fix.y, fix.z);
         if (gs.d > NEAR) {
-          var ph = (ts % 1600) / 1600;
-          ctx.fillStyle = theme.gps;
-          ctx.globalAlpha = 0.4 * (1 - ph);
-          ctx.beginPath(); ctx.arc(gs.x, gs.y, 9 + 24 * ph, 0, 7); ctx.fill();
+          ctx.fillStyle = T.gps;
+          ctx.globalAlpha = 0.45 * (1 - pulse);
+          ctx.beginPath(); ctx.arc(gs.x, gs.y, 9 + 26 * pulse, 0, 7); ctx.fill();
           ctx.globalAlpha = 1;
           ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(gs.x, gs.y, 10, 0, 7); ctx.fill();
-          ctx.fillStyle = theme.gps; ctx.beginPath(); ctx.arc(gs.x, gs.y, 7, 0, 7); ctx.fill();
+          ctx.fillStyle = T.gps; ctx.beginPath(); ctx.arc(gs.x, gs.y, 7, 0, 7); ctx.fill();
+          chip("YOU", gs.x + 14, gs.y - 14, T.gps, true);
         }
       }
     }
 
-    function drawProfile() {
-      var w = prof.width / dpr, h = prof.height / dpr;
-      if (!w || !theme) return;
-      var g = pctx;
+    // Time scrubber: the day's altitude over time, with numbered stop ticks
+    function drawScrub() {
+      var w = scrub.width / dpr, h = scrub.height / dpr;
+      if (!w) return;
+      var g = sctx;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.clearRect(0, 0, w, h);
-      function X(s) { return 14 + (w - 28) * s / ROAD_LEN; }
-      function Y(e) { return 20 + (h - 38) * (1 - e / 1100); }
-      g.beginPath(); g.moveTo(X(0), h - 18);
-      road.forEach(function (p) { g.lineTo(X(p.s), Y(p.e)); });
-      g.lineTo(X(ROAD_LEN), h - 18); g.closePath();
-      g.fillStyle = theme.accent; g.globalAlpha = 0.2; g.fill(); g.globalAlpha = 1;
-      g.beginPath();
-      road.forEach(function (p, k) { if (k) g.lineTo(X(p.s), Y(p.e)); else g.moveTo(X(p.s), Y(p.e)); });
-      g.strokeStyle = theme.accent; g.lineWidth = 2; g.stroke();
-
-      g.font = "600 11px " + FONT; g.fillStyle = theme.muted; g.textBaseline = "bottom";
-      g.textAlign = "left"; g.fillText("Kellyville ~60 m", 4, h - 2);
-      g.textAlign = "right"; g.fillText("Mt Wilson ~1,000 m", w - 4, h - 2);
-      g.textBaseline = "top"; g.textAlign = "left"; g.fillText("Elevation along the drive", 4, 3);
-
-      [["bellbird", "5"], ["hillbilly", "4"]].forEach(function (t) {
-        var p = stopPos[t[0]];
-        g.fillStyle = state.stops[t[0]] ? "#8a8f93" : "#2f7a52";
-        g.beginPath(); g.arc(X(p.s), Y(p.e), 6, 0, 7); g.fill();
-        g.fillStyle = "#fff"; g.font = "700 9px " + FONT; g.textBaseline = "middle"; g.textAlign = "center";
-        g.fillText(t[1], X(p.s), Y(p.e) + 0.5);
+      function X(t) { return 2 + (w - 4) * (t - 480) / 420; }
+      function Y(e) { return h - 4 - (h - 16) * e / 1100; }
+      g.strokeStyle = "rgba(150,185,205,.12)"; g.lineWidth = 1;
+      for (var hr = 8; hr <= 15; hr++) { var hx = Math.round(X(hr * 60)) + 0.5; g.beginPath(); g.moveTo(hx, 12); g.lineTo(hx, h); g.stroke(); }
+      var pts = [];
+      for (var t = 480; t <= 900; t += 3) pts.push([X(t), Y(planAt(t).e)]);
+      function area() {
+        g.beginPath(); g.moveTo(pts[0][0], h);
+        pts.forEach(function (p) { g.lineTo(p[0], p[1]); });
+        g.lineTo(pts[pts.length - 1][0], h); g.closePath();
+      }
+      var grad = g.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, "rgba(255,181,71,.22)"); grad.addColorStop(1, "rgba(255,181,71,0)");
+      area(); g.fillStyle = grad; g.fill();
+      g.save(); g.beginPath(); g.rect(0, 0, X(planMin), h); g.clip();
+      grad = g.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, "rgba(255,181,71,.5)"); grad.addColorStop(1, "rgba(255,181,71,.05)");
+      area(); g.fillStyle = grad; g.fill();
+      g.restore();
+      g.beginPath(); pts.forEach(function (p, k) { if (k) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); });
+      g.strokeStyle = T.signal; g.lineWidth = 1.5; g.stroke();
+      g.font = "700 9px " + MONO; g.textAlign = "center"; g.textBaseline = "top";
+      STOP_TIMES.forEach(function (st) {
+        g.fillStyle = state.stops[stops[st[1]].id] ? T.ok : T.muted;
+        g.fillText(String(st[1] + 1), clamp(X(st[0]), 4, w - 4), 0);
       });
-
-      var pl = planAt(planMin);
-      g.font = "15px " + FONT; g.textAlign = "center"; g.textBaseline = "bottom";
-      g.fillText(pl.icon, clamp(X(pl.s), 10, w - 10), Y(pl.e) - 5);
-
-      if (fix) {
-        var fx = X(fix.near.s);
-        g.strokeStyle = theme.gps; g.lineWidth = 2; g.setLineDash([3, 3]);
-        g.beginPath(); g.moveTo(fx, 4); g.lineTo(fx, h - 18); g.stroke(); g.setLineDash([]);
-        g.fillStyle = theme.gps; g.beginPath(); g.arc(fx, Y(fix.near.e), 5, 0, 7); g.fill();
+      var n = nowMin();
+      if (n !== null && n >= 480 && n <= 900) {
+        g.strokeStyle = T.gps; g.setLineDash([3, 3]); g.lineWidth = 1.5;
+        g.beginPath(); g.moveTo(X(n), 12); g.lineTo(X(n), h); g.stroke(); g.setLineDash([]);
       }
     }
 
-    var layerDirty = true, overlayDirty = true, lastPulse = 0;
-    function resize() {
+    var layerDirty = true, overlayDirty = true, lastFrame = 0;
+    function layout() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       var r = canvas.getBoundingClientRect();
       P.W = r.width; P.H = r.height;
       canvas.width = layer.width = Math.round(r.width * dpr);
       canvas.height = layer.height = Math.round(r.height * dpr);
-      var pr = prof.getBoundingClientRect();
-      prof.width = Math.round(pr.width * dpr); prof.height = Math.round(pr.height * dpr);
+      var hudH = $("hudTop").offsetHeight, dockH = $("dock").offsetHeight;
+      var app = $("app");
+      app.style.setProperty("--hud-h", hudH + "px");
+      app.style.setProperty("--dock-h", dockH + "px");
+      var visH = Math.max(160, P.H - hudH - dockH + 40);
+      P.ox = P.W / 2 - (P.W < 700 ? 22 : 0);
+      P.oy = hudH + visH / 2 - 10;
+      P.F = Math.max(Math.min(P.W, visH * 1.5), 260) * 1.15;
+      var sr = scrub.getBoundingClientRect();
+      scrub.width = Math.round(sr.width * dpr); scrub.height = Math.round(sr.height * dpr);
       layerDirty = true;
-      drawProfile();
+      drawScrub();
     }
     function frame(ts) {
+      if (tour) stepTour(ts);
       if (stepCamera()) layerDirty = true;
       if (layerDirty) { renderLayer(); layerDirty = false; overlayDirty = true; }
-      if (overlayDirty || (fix && ts - lastPulse > 40)) { drawOverlay(ts); overlayDirty = false; lastPulse = ts; }
+      if (overlayDirty || ts - lastFrame > 33) { drawOverlay(ts); overlayDirty = false; lastFrame = ts; }
       requestAnimationFrame(frame);
     }
 
-    // ---- Touch: drag to rotate/tilt, pinch or wheel to zoom, tap a pin to fly to it ----
+    // ---- Touch: drag to rotate/tilt, pinch or wheel to zoom, tap a pin to select it ----
     var pointers = {}, pinch0 = null, tapStart = null;
     function pdist() {
       var ps = Object.keys(pointers).map(function (k) { return pointers[k]; });
       return Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y);
     }
-    function hideHint() { hintEl.style.opacity = "0"; }
-    setTimeout(hideHint, 7000);
     canvas.addEventListener("pointerdown", function (e) {
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
       pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
       var n = Object.keys(pointers).length;
       if (n === 1) tapStart = { x: e.clientX, y: e.clientY, t: Date.now() };
       else { tapStart = null; if (n === 2) pinch0 = { d: pdist(), dist: goal.dist }; }
-      hideHint();
+      stopTour();
     });
     canvas.addEventListener("pointermove", function (e) {
       var p = pointers[e.pointerId];
@@ -930,7 +1014,7 @@
           Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 10 && Date.now() - tapStart.t < 450) {
         var r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, best = null, bd = 30;
         hits.forEach(function (h) { var d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h; } });
-        if (best) { setFollow(false); focusOn(best.p.x, best.p.y, best.p.e * EX, 9000); }
+        if (best) { setFollow(false); selectStop(best.id, { fly: true, scroll: true }); }
       }
       delete pointers[e.pointerId];
       if (Object.keys(pointers).length < 2) pinch0 = null;
@@ -941,46 +1025,84 @@
     canvas.addEventListener("wheel", function (e) {
       e.preventDefault();
       goal.dist = clamp(goal.dist * Math.exp(e.deltaY * 0.0015), 2500, 120000);
-      hideHint();
     }, { passive: false });
 
-    document.getElementById("mapOverview").addEventListener("click", function () {
-      setFollow(false); goal = copy(OVERVIEW);
-    });
+    $("btnOverview").addEventListener("click", function () { stopTour(); setFollow(false); goal = copy(OVERVIEW); });
+    var follow = false;
     function setFollow(on) {
       follow = on;
-      followBtn.setAttribute("aria-pressed", on ? "true" : "false");
-      if (on && fix) focusOn(fix.x, fix.y, fix.z, 11000);
+      $("btnFollow").setAttribute("aria-pressed", on ? "true" : "false");
+      if (on && fix) { stopTour(); focusOn(fix.x, fix.y, fix.z, 11000); }
     }
-    followBtn.addEventListener("click", function () { setFollow(!follow); });
+    $("btnFollow").addEventListener("click", function () { setFollow(!follow); });
 
-    // ---- Plan-time slider ----
-    var planManual = false, planMin = 510;
+    // ---- Tour: play the day with the camera riding along ----
+    var tour = null, TOUR_SECONDS = 48;
+    function startTour() {
+      setFollow(false);
+      tour = { t0: performance.now() };
+      planManual = true;
+      $("btnTour").setAttribute("aria-pressed", "true");
+      setTool("btnTour", "pause", "Pause");
+    }
+    function stopTour() {
+      if (!tour) return;
+      tour = null;
+      $("btnTour").setAttribute("aria-pressed", "false");
+      setTool("btnTour", "play", "Tour");
+    }
+    function stepTour(ts) {
+      var m = 510 + Math.max(0, ts - tour.t0) / 1000 * (375 / TOUR_SECONDS);
+      if (m >= 885) { m = 885; stopTour(); }
+      planMin = m;
+      var pl = planAt(m);
+      goal.tx = pl.x; goal.ty = pl.y; goal.tz = pl.z;
+      goal.dist = pl.walk ? 5500 : 16000; goal.pitch = 50;
+      goal.yaw = (goal.yaw + 0.06) % 360;
+      if (pl.stop !== activeId) selectStop(pl.stop, { scroll: true });
+      syncPlanUI();
+    }
+    $("btnTour").addEventListener("click", function () { if (tour) stopTour(); else startTour(); });
+
+    // ---- Plan-time scrubber ----
+    var planManual = false, planMin = 510, lastPlanLabel = "";
     function nowMin() {
       var d = new Date();
       return d.getFullYear() === 2026 && d.getMonth() === 9 && d.getDate() === 18 ? d.getHours() * 60 + d.getMinutes() : null;
     }
+    function syncPlanUI() {
+      var n = nowMin(), pl = planAt(planMin);
+      slider.value = Math.round(planMin / 5) * 5;
+      $("planNow").hidden = !(planManual && n !== null);
+      var label = clock(planMin) + "|" + pl.text;
+      if (label !== lastPlanLabel) {
+        lastPlanLabel = label;
+        $("planClock").textContent = clock(planMin);
+        $("planText").textContent = pl.text;
+      }
+      overlayDirty = true;
+      drawScrub();
+    }
     function syncPlan() {
       var n = nowMin();
       if (!planManual && n !== null) planMin = clamp(n, 480, 900);
-      slider.value = planMin;
-      planNowBtn.hidden = !(planManual && n !== null);
-      document.getElementById("planClock").textContent = clock(planMin);
-      var pl = planAt(planMin);
-      document.getElementById("planStatus").textContent = pl.icon + " " + pl.text +
-        (n !== null && !planManual ? " — where the plan says you'd be now" : "");
-      overlayDirty = true;
-      drawProfile();
+      syncPlanUI();
     }
-    slider.addEventListener("input", function () { planManual = true; planMin = +slider.value; syncPlan(); });
-    planNowBtn.addEventListener("click", function () { planManual = false; syncPlan(); });
+    slider.addEventListener("input", function () {
+      stopTour(); planManual = true; planMin = +slider.value; syncPlanUI();
+      var pl = planAt(planMin);
+      if (pl.stop !== activeId) selectStop(pl.stop, { scroll: true });
+    });
+    $("planNow").addEventListener("click", function () { planManual = false; syncPlan(); });
     setInterval(syncPlan, 30000);
 
     // ---- GPS ----
     // The Claude artifact viewer injects window.claude and does not allow location access
     var IN_VIEWER = !!(window.claude && typeof window.claude.use === "function");
-    var VIEWER_MSG = "Live GPS doesn't work in the Claude viewer. Open the downloaded index.html in Chrome or Safari to see the blue dot. Everything else here works.";
-    var GPS_KEY = KEY + "-gps", watchId = null, fix = null, follow = false, wakeLock = null, arriveId = null;
+    var VIEWER_MSG = "GPS isn't available in the Claude viewer. Open the Vercel link or the downloaded file for live GPS.";
+    var GPS_KEY = KEY + "-gps", watchId = null, fix = null, wakeLock = null, arriveId = null;
+    var tele = $("telemetry");
+    function setTele(text, live) { tele.textContent = text; tele.classList.toggle("live", !!live); }
     function setGpsPref(on) { try { localStorage.setItem(GPS_KEY, on ? "1" : "0"); } catch (e) {} }
     function keepAwake() {
       try {
@@ -991,98 +1113,123 @@
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") keepAwake(); });
 
     function startGps() {
-      if (!("geolocation" in navigator)) { gpsStatusEl.textContent = "This browser can't access GPS."; return; }
-      if (window.isSecureContext === false) {
-        gpsStatusEl.textContent = "GPS only works when this page is opened from an https:// link (e.g. GitHub Pages).";
-        return;
-      }
-      gpsStatusEl.textContent = "Finding you… allow location if your phone asks.";
+      if (IN_VIEWER) { setTele("GPS unavailable in the Claude viewer"); showSheet("sheetInfo"); return; }
+      if (!("geolocation" in navigator)) { setTele("This browser can't access GPS"); return; }
+      if (window.isSecureContext === false) { setTele("GPS needs the https:// (Vercel) link"); return; }
+      setTele("Finding you… allow location if asked", true);
       watchId = navigator.geolocation.watchPosition(onFix, onErr, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
-      gpsBtn.textContent = "Stop GPS"; gpsBtn.classList.add("gps-on");
+      $("btnGps").setAttribute("aria-pressed", "true");
       setGpsPref(true);
       keepAwake();
     }
     function stopGps(msg) {
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       watchId = null; fix = null;
-      setFollow(false); followBtn.disabled = true;
-      gpsBtn.textContent = "📡 Start GPS"; gpsBtn.classList.remove("gps-on");
-      gpsStatusEl.textContent = msg || "GPS is off.";
-      arriveEl.hidden = true;
+      setFollow(false); $("btnFollow").disabled = true;
+      $("btnGps").setAttribute("aria-pressed", "false");
+      setTele(msg || "GPS off");
+      $("arrive").hidden = true;
       setGpsPref(false);
       if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
-      overlayDirty = true; drawProfile();
+      overlayDirty = true; updateTicker();
     }
     function onErr(e) {
-      if (e.code === 1) stopGps(IN_VIEWER ? VIEWER_MSG : "Location permission is blocked. Allow location for this page in your browser settings, then tap Start GPS again.");
-      else if (!fix) gpsStatusEl.textContent = "Still looking for a GPS signal… open sky helps.";
+      if (e.code === 1) stopGps("Location blocked. Allow it in browser settings, then tap GPS");
+      else if (!fix) setTele("Still looking for a GPS signal…", true);
     }
     function onFix(pos) {
       var c = pos.coords, p = toXY(c.latitude, c.longitude);
-      fix = { x: p.x, y: p.y, z: height(p.x, p.y) * EX + LIFT, acc: c.accuracy, alt: c.altitude, near: nearest(p.x, p.y) };
-      followBtn.disabled = false;
+      fix = { x: p.x, y: p.y, z: height(p.x, p.y) * EX + LIFT, acc: c.accuracy, alt: c.altitude };
+      $("btnFollow").disabled = false;
       if (follow) focusOn(fix.x, fix.y, fix.z, 11000);
       updateGps();
-      overlayDirty = true; drawProfile();
+      overlayDirty = true;
     }
     function fmtDist(d) { return d < 1000 ? Math.round(d / 10) * 10 + " m" : (d / 1000).toFixed(d < 10000 ? 1 : 0) + " km"; }
+    function distToNext() {
+      var next = nextStop();
+      if (!fix || !next) return null;
+      var sp = stopPos[next.id];
+      return Math.hypot(fix.x - sp.x, fix.y - sp.y);
+    }
     function updateGps() {
       if (!fix) return;
-      var next = nextStop(), txt, prompt = null;
-      if (!next) txt = "📍 All stops done. Nice day out!";
-      else {
-        var sp = stopPos[next.id], d = Math.hypot(fix.x - sp.x, fix.y - sp.y);
-        txt = "📍 " + fmtDist(d) + " in a straight line to " + next.title;
-        if (next.id === "leave") { if (d > 4000) prompt = "Looks like you're on the road. Tick off “Leave Kellyville”?"; }
+      var next = nextStop(), d = distToNext(), prompt = null, parts = [];
+      parts.push(next ? fmtDist(d) + " to " + next.title : "All stops done");
+      if (fix.alt != null) parts.push(Math.round(fix.alt) + " m alt");
+      parts.push("±" + Math.round(fix.acc) + " m");
+      setTele(parts.join(" · "), true);
+      if (next) {
+        if (next.id === "leave") { if (d > 4000) prompt = "You're on the road. Tick off “Leave Kellyville”?"; }
         else if (d < (next.id === "home" ? 3000 : 500)) prompt = "You're at " + next.title + ". Tick it off?";
       }
-      if (fix.alt != null) txt += " · altitude " + Math.round(fix.alt) + " m";
-      txt += " · GPS ±" + Math.round(fix.acc) + " m";
-      gpsStatusEl.textContent = txt;
       arriveId = prompt ? next.id : null;
-      arriveEl.hidden = !prompt;
-      if (prompt) document.getElementById("arriveText").textContent = prompt;
+      $("arrive").hidden = !prompt;
+      if (prompt) $("arriveText").textContent = prompt;
     }
-    document.getElementById("arriveBtn").addEventListener("click", function () {
+    $("arriveBtn").addEventListener("click", function () {
       if (!arriveId) return;
       state.stops[arriveId] = true;
       save(); render();
     });
-    gpsBtn.addEventListener("click", function () { if (watchId === null) startGps(); else stopGps(); });
+    $("btnGps").addEventListener("click", function () { if (watchId === null) startGps(); else stopGps(); });
+
+    function updateTicker() {
+      var next = nextStop(), d = distToNext(), items = [];
+      if (next) items.push("<b>Next</b> " + esc(next.time + " · " + next.title) + (d !== null ? " · " + fmtDist(d) : ""));
+      else items.push("<b>All stops done</b> · nice day out");
+      items.push('<span class="warn">No dogs in the national park around Mt Wilson, incl. the Cathedral of Ferns loop</span>');
+      if (!state.stops.nooroo) items.push("Nooroo spring opening unconfirmed · call (02) 4756 2018 · Plan B ready");
+      if (!state.stops.hillbilly) items.push("Hillbilly Cider · book ahead on (02) 4567 0965");
+      if (!state.stops.bellbird) items.push("Bellbird Lookout · turn in only when heading downhill (east)");
+      setTicker(items);
+    }
 
     // ---- Start ----
-    readTheme();
-    if (window.matchMedia) {
-      var mq = matchMedia("(prefers-color-scheme: dark)"), onTheme = function () { readTheme(); layerDirty = true; drawProfile(); };
-      if (mq.addEventListener) mq.addEventListener("change", onTheme); else if (mq.addListener) mq.addListener(onTheme);
-    }
-    if (window.MutationObserver) new MutationObserver(function () { readTheme(); layerDirty = true; drawProfile(); })
-      .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    resize();
-    if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas); else window.addEventListener("resize", resize);
+    layout();
+    if (window.ResizeObserver) new ResizeObserver(layout).observe(document.body); else window.addEventListener("resize", layout);
     syncPlan();
-    if (IN_VIEWER) gpsStatusEl.textContent = VIEWER_MSG;
+    if (IN_VIEWER) $("gpsHelp").textContent = VIEWER_MSG;
     else try { if (localStorage.getItem(GPS_KEY) === "1") startGps(); } catch (e) {}
     requestAnimationFrame(frame);
 
-    return { update: function () { overlayDirty = true; updateGps(); drawProfile(); } };
+    return {
+      update: function () { overlayDirty = true; updateGps(); updateTicker(); drawScrub(); },
+      flyToStop: function (id) {
+        stopTour(); setFollow(false);
+        var p = stopPos[id];
+        focusOn(p.x, p.y, p.e * EX, id === "fire" || id === "nooroo" ? 7000 : 12000);
+      },
+      stopTour: stopTour
+    };
   })();
 
-  var resetBtn = document.getElementById("reset"), resetTimer = null;
+  // Reset lives in the Info sheet and needs a second tap to confirm
+  var resetBtn = $("reset"), resetTimer = null;
   resetBtn.addEventListener("click", function () {
     if (!resetTimer) {
       resetBtn.textContent = "Tap again to clear all ticks";
-      resetTimer = setTimeout(function () { resetTimer = null; resetBtn.textContent = "Reset all ticks"; }, 4000);
+      resetBtn.classList.add("armed");
+      resetTimer = setTimeout(function () { resetTimer = null; resetBtn.textContent = "Reset all ticks"; resetBtn.classList.remove("armed"); }, 4000);
       return;
     }
     clearTimeout(resetTimer); resetTimer = null;
-    resetBtn.textContent = "Reset all ticks";
+    resetBtn.textContent = "Reset all ticks"; resetBtn.classList.remove("armed");
     state = { stops: {}, pack: {} };
     try { localStorage.removeItem(KEY); } catch (e) {}
     render();
   });
 
+  function tickClock() {
+    var d = new Date(), h = d.getHours(), m = d.getMinutes();
+    $("clock").textContent = (((h + 11) % 12) + 1) + ":" + (m < 10 ? "0" : "") + m + (h >= 12 ? "pm" : "am");
+  }
+  tickClock(); setInterval(tickClock, 15000);
+
   render();
+  var first = nextStop() || stops[stops.length - 1];
+  selectStop(first.id, {});
+  scrollToCard(first.id, false);
 })();
 </script>
 </body>
