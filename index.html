@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16181a" media="(prefers-color-scheme: dark)">
+<title>Mt Wilson Dog Day Trip</title>
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --surface: #ffffff;
+    --text: #1d1f21;
+    --muted: #5d6266;
+    --line: #dcdad3;
+    --accent: #2f6f4f;
+    --accent-ink: #ffffff;
+    --accent-soft: #e1efe6;
+    --warn-bg: #fff3d6;
+    --warn-line: #e0b44c;
+    --warn-text: #5a4100;
+    --done: #8a8f93;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181a;
+      --surface: #212427;
+      --text: #eceae4;
+      --muted: #a4a9ad;
+      --line: #363a3e;
+      --accent: #6fc196;
+      --accent-ink: #0f1a14;
+      --accent-soft: #23362b;
+      --warn-bg: #3a2f12;
+      --warn-line: #a5822c;
+      --warn-text: #f6dc97;
+      --done: #7b8085;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 18px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: env(safe-area-inset-top) 16px calc(32px + env(safe-area-inset-bottom));
+  }
+  main { max-width: 640px; margin: 0 auto; }
+  a { color: inherit; }
+
+  header { padding: 20px 0 12px; }
+  h1 { font-size: 1.55rem; line-height: 1.2; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0; font-size: 1rem; }
+
+  .progress {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg);
+    padding: 10px 0 12px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .progress-row { display: flex; flex-wrap: wrap; gap: 2px 12px; justify-content: space-between; align-items: baseline; font-weight: 600; }
+  .progress-row span:last-child { color: var(--muted); font-weight: 500; font-size: .95rem; }
+  .bar { height: 10px; border-radius: 5px; background: var(--line); margin-top: 8px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+
+  .warn {
+    background: var(--warn-bg);
+    border: 2px solid var(--warn-line);
+    color: var(--warn-text);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 24px;
+    display: flex; gap: 12px;
+  }
+  .warn strong { display: block; font-size: 1.05rem; margin-bottom: 2px; }
+  .warn .icon { font-size: 1.6rem; line-height: 1; }
+
+  h2 { font-size: 1.2rem; margin: 28px 0 12px; }
+
+  /* Timeline */
+  .timeline { list-style: none; margin: 0; padding: 0; }
+  .stop {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    margin-left: 22px;
+  }
+  .stop::before { /* connector dot */
+    content: ""; position: absolute; left: -29px; top: 26px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--bg); border: 3px solid var(--accent);
+  }
+  .stop.done::before { background: var(--accent); }
+  .leg {
+    position: relative;
+    margin-left: 22px;
+    padding: 14px 0 14px 4px;
+    color: var(--muted);
+    font-size: .95rem;
+  }
+  .leg::before {
+    content: ""; position: absolute; left: -20px; top: 0; bottom: 0;
+    border-left: 3px dotted var(--line);
+  }
+  .toggle {
+    all: unset; box-sizing: border-box;
+    display: flex; gap: 14px; align-items: flex-start;
+    width: 100%; padding: 16px; cursor: pointer;
+    min-height: 64px; border-radius: var(--radius);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .toggle:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .check {
+    flex: none; width: 34px; height: 34px; border-radius: 50%;
+    border: 2px solid var(--line); display: grid; place-items: center;
+    font-size: 1.1rem; font-weight: 700; color: transparent; margin-top: 2px;
+  }
+  .done .check { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .time { font-weight: 700; color: var(--accent); font-size: 1rem; }
+  .title { font-weight: 700; font-size: 1.15rem; line-height: 1.25; display: block; }
+  .done .title { text-decoration: line-through; color: var(--done); }
+  .tag {
+    display: inline-block; font-size: .78rem; font-weight: 600;
+    padding: 1px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 2px;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .addr { color: var(--muted); font-size: .95rem; display: block; margin-top: 2px; }
+  .body { padding: 0 16px 16px 64px; }
+  .done .body { opacity: .6; }
+  .body ul { margin: 0 0 12px; padding-left: 18px; }
+  .body li { margin: 4px 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 48px; padding: 0 18px; border-radius: 12px;
+    font-weight: 600; font-size: 1rem; text-decoration: none;
+    border: 2px solid var(--accent); color: var(--accent); background: transparent;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); }
+  .btn:active { transform: scale(.98); }
+
+  /* Pack list */
+  .pack { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .pack li + li { border-top: 1px solid var(--line); }
+  .pack label { display: flex; align-items: center; gap: 14px; min-height: 58px; padding: 10px 16px; cursor: pointer; }
+  .pack input {
+    appearance: none; -webkit-appearance: none; flex: none;
+    width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--line);
+    display: grid; place-items: center; margin: 0; background: var(--surface);
+  }
+  .pack input:checked { background: var(--accent); border-color: var(--accent); }
+  .pack input:checked::after { content: "✓"; color: var(--accent-ink); font-weight: 700; }
+  .pack input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .pack input:checked + span { color: var(--done); text-decoration: line-through; }
+  .pack small { display: block; color: var(--muted); font-size: .85rem; }
+
+  .reset-wrap { text-align: center; margin-top: 32px; }
+  .reset { all: unset; box-sizing: border-box; min-height: 48px; padding: 0 22px; border-radius: 12px; border: 2px solid var(--line); color: var(--muted); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; }
+  .reset:focus-visible { outline: 3px solid var(--accent); }
+  footer { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>🐾 Mt Wilson &amp; Bilpin Day Trip</h1>
+    <p class="sub">Sunday 18 October 2026 · Us, Ann &amp; the dogs · times approximate</p>
+  </header>
+
+  <div class="progress" aria-live="polite">
+    <div class="progress-row"><span id="count">0 of 6 stops done</span><span id="next"></span></div>
+    <div class="bar"><div id="bar"></div></div>
+  </div>
+
+  <div class="warn" role="note">
+    <span class="icon" aria-hidden="true">⚠️</span>
+    <div>
+      <strong>No dogs in the national park</strong>
+      Keep the dogs out of the national park around Mt Wilson, including the Cathedral of Ferns loop at Cathedral Reserve.
+    </div>
+  </div>
+
+  <h2>Itinerary</h2>
+  <ol class="timeline" id="timeline"></ol>
+
+  <h2>Pack list <span class="sub" id="packCount" style="font-weight:500"></span></h2>
+  <ul class="pack" id="pack"></ul>
+
+  <div class="reset-wrap"><button class="reset" id="reset" type="button">Reset all ticks</button></div>
+  <footer>Works offline · ticks are saved on this phone</footer>
+</main>
+
+<script>
+(function () {
+  var KEY = "mtwilson-trip-2026-10-18";
+
+  var stops = [
+    { id: "leave", time: "8:30am", title: "Leave Kellyville",
+      addr: "Kellyville NSW",
+      notes: ["Drive via Richmond, Kurrajong and Bells Line of Road (~1h30)."] },
+    { id: "fire", time: "10:00am", title: "Mount Wilson Fire Station",
+      addr: "47 The Avenue, Mount Wilson NSW 2786",
+      notes: ["Park here · public toilets.", "Walk ~10 min along The Avenue (Mt Wilson Village Walk) to Church Lane."] },
+    { id: "nooroo", time: "10:15–11:00am", title: "Nooroo Garden",
+      addr: "11–15 Church Ln, Mount Wilson NSW 2786",
+      phone: "0247562018", phoneLabel: "(02) 4756 2018",
+      notes: ["Dogs welcome on lead.", "Flat, walker-accessible paths.", "Wisteria near peak in late October.", "Entry ~$12–15pp, cards OK.", "Kiosk and toilet."] },
+    { id: "hillbilly", time: "11:45am–1:30pm", title: "Hillbilly Cider Shed",
+      addr: "2230 Bells Line of Rd, Bilpin NSW 2758",
+      phone: "0245670965", phoneLabel: "(02) 4567 0965",
+      notes: ["Corner of Johnsons Rd.", "Lunch on the lawn with the dogs · wood-fired pizza.", "Non-alcoholic options for Ann.", "Open 10am–6pm weekends · book ahead."] },
+    { id: "bellbird", time: "1:50pm", title: "Bellbird Lookout", optional: true,
+      addr: "1183 Bells Line of Rd, Kurrajong Heights NSW 2758",
+      notes: ["Can only turn in when heading downhill/east.", "Toilets."] },
+    { id: "home", time: "~2:45pm", title: "Home to Kellyville",
+      addr: "Kellyville NSW",
+      notes: ["~45 min drive."] }
+  ];
+
+  // Legs shown between stop[i] and stop[i+1]
+  var legs = [
+    "🚗 ~1h30 drive",
+    "🚶 ~10 min walk along The Avenue",
+    "🚶 ~10 min walk back to the car, then 🚗 ~30 min drive",
+    "🚗 ~20 min drive down Bells Line of Rd",
+    "🚗 ~45 min drive home"
+  ];
+
+  var pack = [
+    { id: "leads", label: "Leads and poo bags", hint: "No bins at some stops — bring spare bags" },
+    { id: "dogwater", label: "Water and bowls for the dogs" },
+    { id: "annwater", label: "Water and snacks for Ann" },
+    { id: "card", label: "Card for garden entry" },
+    { id: "maps", label: "Offline maps downloaded", hint: "Reception is patchy in the mountains" },
+    { id: "layers", label: "Hats, sunscreen and a warm layer" }
+  ];
+
+  var state = { stops: {}, pack: {} };
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY));
+    if (saved && typeof saved === "object") {
+      state.stops = saved.stops || {};
+      state.pack = saved.pack || {};
+    }
+  } catch (e) {}
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (k === "text") n.textContent = attrs[k];
+      else if (k === "class") n.className = attrs[k];
+      else n.setAttribute(k, attrs[k]);
+    }
+    (children || []).forEach(function (c) { if (c) n.appendChild(c); });
+    return n;
+  }
+
+  function mapsUrl(addr) {
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr);
+  }
+
+  var timeline = document.getElementById("timeline");
+  stops.forEach(function (s, i) {
+    var title = el("span", { class: "title", text: s.title });
+    if (s.optional) title.appendChild(el("span", { class: "tag", text: "Optional" }));
+
+    var toggle = el("button", { class: "toggle", type: "button", "aria-pressed": "false" }, [
+      el("span", { class: "check", "aria-hidden": "true", text: "✓" }),
+      el("span", null, [
+        el("span", { class: "time", text: s.time }),
+        title,
+        el("span", { class: "addr", text: s.addr })
+      ])
+    ]);
+
+    var actions = [el("a", { class: "btn" + (s.phone ? "" : " primary"), href: mapsUrl(s.addr), target: "_blank", rel: "noopener", text: "📍 Open in Maps" })];
+    if (s.phone) actions.unshift(el("a", { class: "btn primary", href: "tel:" + s.phone, text: "📞 Call " + s.phoneLabel }));
+
+    var body = el("div", { class: "body" }, [
+      el("ul", null, s.notes.map(function (t) { return el("li", { text: t }); })),
+      el("div", { class: "actions" }, actions)
+    ]);
+
+    var li = el("li", { class: "stop", "data-id": s.id }, [toggle, body]);
+    toggle.addEventListener("click", function () {
+      state.stops[s.id] = !state.stops[s.id];
+      save(); render();
+    });
+    timeline.appendChild(li);
+
+    if (i < legs.length) timeline.appendChild(el("li", { class: "leg", text: legs[i] }));
+  });
+
+  var packEl = document.getElementById("pack");
+  pack.forEach(function (p) {
+    var input = el("input", { type: "checkbox", id: "p-" + p.id });
+    input.checked = !!state.pack[p.id];
+    input.addEventListener("change", function () {
+      state.pack[p.id] = input.checked;
+      save(); render();
+    });
+    var text = el("span", { text: p.label });
+    if (p.hint) text.appendChild(el("small", { text: p.hint }));
+    packEl.appendChild(el("li", null, [el("label", { for: "p-" + p.id }, [input, text])]));
+  });
+
+  function render() {
+    var done = 0, next = null;
+    stops.forEach(function (s) {
+      var on = !!state.stops[s.id];
+      if (on) done++; else if (!next) next = s;
+      var li = timeline.querySelector('[data-id="' + s.id + '"]');
+      li.classList.toggle("done", on);
+      li.querySelector(".toggle").setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    document.getElementById("count").textContent = done + " of " + stops.length + " stops done";
+    document.getElementById("next").textContent = next ? "Next: " + next.title : "All done 🎉";
+    document.getElementById("bar").style.width = (done / stops.length * 100) + "%";
+
+    var packed = 0;
+    pack.forEach(function (p) {
+      var on = !!state.pack[p.id];
+      if (on) packed++;
+      document.getElementById("p-" + p.id).checked = on;
+    });
+    document.getElementById("packCount").textContent = "· " + packed + "/" + pack.length + " packed";
+  }
+
+  document.getElementById("reset").addEventListener("click", function () {
+    if (!confirm("Clear all stop and pack-list ticks?")) return;
+    state = { stops: {}, pack: {} };
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
