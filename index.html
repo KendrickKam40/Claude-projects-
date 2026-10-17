@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#16181a" media="(prefers-color-scheme: dark)">
 <title>Mt Wilson Dog Day Trip</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <style>
   :root {
     --bg: #f6f5f1;
@@ -29,7 +30,7 @@
     --radius: 14px;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #16181a;
       --surface: #212427;
       --text: #eceae4;
@@ -47,17 +48,41 @@
       --road: #f59a4a;
       --road-casing: #15181b;
       --gps: #4b9bff;
+      color-scheme: dark;
     }
   }
+  :root[data-theme="dark"] {
+    --bg: #16181a;
+    --surface: #212427;
+    --text: #eceae4;
+    --muted: #a4a9ad;
+    --line: #363a3e;
+    --accent: #6fc196;
+    --accent-ink: #0f1a14;
+    --accent-soft: #23362b;
+    --warn-bg: #3a2f12;
+    --warn-line: #a5822c;
+    --warn-text: #f6dc97;
+    --done: #7b8085;
+    --sky-top: #0a111c;
+    --sky-bottom: #1f2a33;
+    --road: #f59a4a;
+    --road-casing: #15181b;
+    --gps: #4b9bff;
+    color-scheme: dark;
+  }
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
     font: 18px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    padding: env(safe-area-inset-top) 16px calc(32px + env(safe-area-inset-bottom));
+    padding-block: 0 32px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
   main { max-width: 640px; margin: 0 auto; }
   a { color: inherit; }
 
@@ -66,7 +91,7 @@
   .sub { color: var(--muted); margin: 0; font-size: 1rem; }
 
   .progress {
-    position: sticky; top: 0; z-index: 5;
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
     background: var(--bg);
     padding: 10px 0 12px;
     border-bottom: 1px solid var(--line);
@@ -606,11 +631,16 @@
       var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(h);
       return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [238, 242, 239];
     }
+    function isDark() {
+      var t = document.documentElement.getAttribute("data-theme");
+      if (t) return t === "dark";
+      return !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+    }
     function readTheme() {
       var cs = getComputedStyle(document.documentElement);
       function v(n) { return cs.getPropertyValue(n).trim(); }
       theme = {
-        dark: window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches,
+        dark: isDark(),
         skyTop: v("--sky-top"), skyBottom: v("--sky-bottom"), fog: hexRgb(v("--sky-bottom")),
         road: v("--road"), casing: v("--road-casing"), gps: v("--gps"), text: v("--text"),
         surface: v("--surface"), muted: v("--muted"), accent: v("--accent"), line: v("--line")
@@ -911,6 +941,9 @@
     setInterval(syncPlan, 30000);
 
     // ---- GPS ----
+    // The Claude artifact viewer injects window.claude and does not allow location access
+    var IN_VIEWER = !!(window.claude && typeof window.claude.use === "function");
+    var VIEWER_MSG = "Live GPS doesn't work in the Claude viewer. Open the downloaded index.html in Chrome or Safari to see the blue dot. Everything else here works.";
     var GPS_KEY = KEY + "-gps", watchId = null, fix = null, follow = false, wakeLock = null, arriveId = null;
     function setGpsPref(on) { try { localStorage.setItem(GPS_KEY, on ? "1" : "0"); } catch (e) {} }
     function keepAwake() {
@@ -945,7 +978,7 @@
       overlayDirty = true; drawProfile();
     }
     function onErr(e) {
-      if (e.code === 1) stopGps("Location permission is blocked. Allow location for this page in your browser settings, then tap Start GPS again.");
+      if (e.code === 1) stopGps(IN_VIEWER ? VIEWER_MSG : "Location permission is blocked. Allow location for this page in your browser settings, then tap Start GPS again.");
       else if (!fix) gpsStatusEl.textContent = "Still looking for a GPS signal… open sky helps.";
     }
     function onFix(pos) {
@@ -987,17 +1020,27 @@
       var mq = matchMedia("(prefers-color-scheme: dark)"), onTheme = function () { readTheme(); layerDirty = true; drawProfile(); };
       if (mq.addEventListener) mq.addEventListener("change", onTheme); else if (mq.addListener) mq.addListener(onTheme);
     }
+    if (window.MutationObserver) new MutationObserver(function () { readTheme(); layerDirty = true; drawProfile(); })
+      .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     resize();
     if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas); else window.addEventListener("resize", resize);
     syncPlan();
-    try { if (localStorage.getItem(GPS_KEY) === "1") startGps(); } catch (e) {}
+    if (IN_VIEWER) gpsStatusEl.textContent = VIEWER_MSG;
+    else try { if (localStorage.getItem(GPS_KEY) === "1") startGps(); } catch (e) {}
     requestAnimationFrame(frame);
 
     return { update: function () { overlayDirty = true; updateGps(); drawProfile(); } };
   })();
 
-  document.getElementById("reset").addEventListener("click", function () {
-    if (!confirm("Clear all stop and pack-list ticks?")) return;
+  var resetBtn = document.getElementById("reset"), resetTimer = null;
+  resetBtn.addEventListener("click", function () {
+    if (!resetTimer) {
+      resetBtn.textContent = "Tap again to clear all ticks";
+      resetTimer = setTimeout(function () { resetTimer = null; resetBtn.textContent = "Reset all ticks"; }, 4000);
+      return;
+    }
+    clearTimeout(resetTimer); resetTimer = null;
+    resetBtn.textContent = "Reset all ticks";
     state = { stops: {}, pack: {} };
     try { localStorage.removeItem(KEY); } catch (e) {}
     render();
