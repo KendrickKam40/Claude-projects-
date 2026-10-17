@@ -4,32 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#070b0f">
+<meta name="theme-color" content="#0a0f13">
 <title>Mt Wilson Dog Day Trip</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-  /* One-screen tracker: full-bleed 3D map, glass HUD on top, tool rail right, stop cards + time scrubber docked below. */
+  /* One calm screen: full-bleed 3D map, a slim header with one status line, three map tools, stop cards docked below. */
   :root {
     color-scheme: dark;
-    --ink: #070b0f;
-    --glass: rgba(12, 18, 24, 0.78);
-    --glass-solid: #0f161d;
-    --line: rgba(150, 185, 205, 0.16);
-    --text: #e7eef3;
-    --soft: #c9d4db;
-    --muted: #8e9fab;
-    --signal: #ffb547;
-    --signal-ink: #1d1405;
-    --ok: #49d6a0;
-    --ok-ink: #05150e;
+    --ink: #0a0f13;
+    --panel: #131b21;
+    --glass: rgba(19, 27, 33, 0.82);
+    --line: rgba(170, 195, 210, 0.13);
+    --text: #eef3f6;
+    --soft: #c3cdd4;
+    --muted: #8796a1;
+    --signal: #f5b24e;
+    --signal-ink: #1f1505;
+    --ok: #4fd1a1;
+    --ok-ink: #04140d;
     --gps: #4ea8ff;
-    --alert: #ff7a5c;
-    --alert-bg: rgba(255, 122, 92, 0.12);
+    --alert: #ff8a6b;
     --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", Consolas, monospace;
-    --radius: 16px;
-    --hud-h: 110px;
-    --dock-h: 260px;
+    --radius: 18px;
+    --hud-h: 100px;
+    --dock-h: 240px;
   }
   * { box-sizing: border-box; }
   html {
@@ -49,102 +47,88 @@
   button { font: inherit; color: inherit; }
   :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
   [hidden] { display: none !important; }
-  .eyebrow { font: 600 10.5px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
   .app { position: relative; height: 100%; overflow: hidden; }
   #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 
-  /* Top HUD */
+  /* Header */
   .hud-top {
     position: absolute; top: 0; left: 0; right: 0; z-index: 3;
-    padding-block: 10px 18px;
+    padding-block: 12px 22px;
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
-    background: linear-gradient(var(--ink) 30%, rgba(7, 11, 15, 0));
+    background: linear-gradient(var(--ink) 40%, rgba(10, 15, 19, 0));
     pointer-events: none;
   }
   .hud-top > * { pointer-events: auto; }
-  .bar { display: flex; align-items: center; gap: 12px; }
+  .bar { display: flex; align-items: center; gap: 8px; }
   .brand { flex: 1; min-width: 0; }
-  .brand h1 { margin: 2px 0 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .clock { font: 600 0.95rem var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); }
-  .ring { position: relative; width: 46px; height: 46px; flex: none; }
-  .ring svg { width: 46px; height: 46px; transform: rotate(-90deg); }
-  .ring circle { fill: none; stroke-width: 4; }
-  .ring .ring-bg { stroke: var(--line); }
-  .ring .ring-fg { stroke: var(--ok); stroke-linecap: round; transition: stroke-dashoffset .4s ease; }
-  .ring span { position: absolute; inset: 0; display: grid; place-items: center; font: 700 12px var(--mono); font-variant-numeric: tabular-nums; }
-  .ticker {
-    margin-top: 10px; overflow: hidden; white-space: nowrap;
-    border: 1px solid var(--line); border-radius: 999px; background: var(--glass);
-    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-    font: 600 11.5px/30px var(--mono); letter-spacing: .06em; text-transform: uppercase;
+  .brand h1 { margin: 0; font-size: 1.2rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brand p { margin: 1px 0 0; font-size: .85rem; color: var(--muted); }
+  .head-btn {
+    min-width: 44px; height: 44px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--glass); cursor: pointer;
+    font-size: .9rem; font-weight: 600; font-variant-numeric: tabular-nums;
   }
-  .ticker-track { display: inline-block; padding-left: 14px; animation: marquee 40s linear infinite; }
-  .ticker-track b { color: var(--signal); font-weight: 700; }
-  .ticker-track .warn { color: var(--alert); }
-  .ticker-track i { font-style: normal; color: var(--muted); padding: 0 14px; }
-  @keyframes marquee { to { transform: translateX(-50%); } }
+  .head-btn.icon-only { padding: 0; }
+  .head-btn .count { color: var(--muted); }
+  .head-btn .count.full { color: var(--ok); }
+  .status {
+    margin-top: 10px; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 8px 14px;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--glass);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  }
+  .status-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--signal); }
+  .status.gps .status-dot { background: var(--gps); box-shadow: 0 0 0 4px rgba(78, 168, 255, .2); }
+  .status.warn .status-dot { background: var(--alert); }
+  .status-text { flex: 1; min-width: 0; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .3s; }
+  .status-text.fade { opacity: 0; }
+  .status-text small { color: var(--muted); font-size: inherit; }
+  .progress { flex: none; font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-  /* Tool rail */
+  /* Map tools */
   .rail {
     position: absolute; z-index: 3; top: calc(var(--hud-h) + 4px);
     right: max(12px, env(safe-area-inset-right, 0px));
-    display: flex; flex-direction: column; gap: 8px;
+    display: flex; flex-direction: column; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 16px; background: var(--glass);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   }
-  .tool {
-    position: relative; width: 54px; min-height: 54px; padding: 6px 0 5px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-    border: 1px solid var(--line); border-radius: 14px; background: var(--glass); cursor: pointer;
-    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-    font: 600 9px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text);
-  }
-  .tool[aria-pressed="true"] { background: var(--gps); border-color: var(--gps); color: #fff; }
-  #btnTour[aria-pressed="true"] { background: var(--signal); border-color: var(--signal); color: var(--signal-ink); }
-  .tool:disabled { opacity: .4; cursor: default; }
-  .badge { position: absolute; top: -6px; right: -6px; min-width: 22px; padding: 2px 5px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font: 700 10px var(--mono); }
-  .badge.full { background: var(--ok); color: var(--ok-ink); }
+  .tool { width: 48px; height: 48px; display: grid; place-items: center; border: 0; background: transparent; cursor: pointer; color: var(--text); }
+  .tool + .tool { border-top: 1px solid var(--line); }
+  .tool.gps-on { color: var(--gps); }
+  .tool.gps-follow { background: var(--gps); color: #fff; }
+  .tool.touring { background: var(--signal); color: var(--signal-ink); }
 
-  /* Floating readouts */
-  .telemetry {
-    position: absolute; z-index: 3; bottom: calc(var(--dock-h) - 18px);
-    left: max(12px, env(safe-area-inset-left, 0px)); max-width: calc(100% - 100px);
-    padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass);
-    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-    font: 600 11px var(--mono); letter-spacing: .04em; color: var(--muted);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .telemetry.live { color: var(--text); }
-  .telemetry.live::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--gps); margin-right: 8px; vertical-align: 1px; box-shadow: 0 0 0 3px rgba(78, 168, 255, .25); }
   .toast {
     position: absolute; z-index: 4; left: 50%; transform: translateX(-50%);
     top: calc(var(--hud-h) + 4px); width: min(92%, 420px);
-    display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px;
-    border-radius: var(--radius); background: var(--glass-solid); border: 1px solid var(--ok);
+    display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px;
+    border-radius: var(--radius); background: var(--panel); border: 1px solid var(--ok);
     box-shadow: 0 10px 30px rgba(0, 0, 0, .45); font-weight: 600;
   }
   .toast span { flex: 1; min-width: 0; }
-  .toast .act { flex: none; padding: 0 14px; }
 
   /* Dock */
   .dock {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
-    padding-block: 26px 12px;
-    background: linear-gradient(rgba(7, 11, 15, 0), var(--ink) 34%);
+    padding-block: 28px 12px;
+    background: linear-gradient(rgba(10, 15, 19, 0), var(--ink) 32%);
   }
   .scrub { margin: 0 auto 10px; max-width: 760px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-  .scrub-head { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-  .scrub-head strong { font: 700 1rem var(--mono); font-variant-numeric: tabular-nums; color: var(--signal); }
-  .plan-text { flex: 1; min-width: 0; color: var(--muted); font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .link { border: 0; background: none; padding: 6px 2px; color: var(--signal); font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
-  .scrub-track { position: relative; height: 46px; margin-top: 4px; }
+  .scrub-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: .9rem; }
+  .scrub-head strong { color: var(--signal); font-variant-numeric: tabular-nums; }
+  .plan-text { flex: 1; min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .link { border: 0; background: none; padding: 6px 2px; color: var(--signal); font-weight: 600; font-size: .85rem; cursor: pointer; }
+  .scrub-track { position: relative; height: 34px; margin-top: 2px; }
   #scrubCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #planTime { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; }
   #planTime::-webkit-slider-runnable-track { height: 100%; background: transparent; }
   #planTime::-moz-range-track { height: 100%; background: transparent; }
-  #planTime::-webkit-slider-thumb { -webkit-appearance: none; width: 4px; height: 46px; border-radius: 2px; background: var(--signal); box-shadow: 0 0 0 4px rgba(255, 181, 71, .25); }
-  #planTime::-moz-range-thumb { width: 4px; height: 46px; border: 0; border-radius: 2px; background: var(--signal); }
+  /* The visible handle is drawn on the elevation line; the native thumb is an invisible touch target */
+  #planTime::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 34px; opacity: 0; }
+  #planTime::-moz-range-thumb { width: 28px; height: 34px; border: 0; opacity: 0; }
 
   .cards {
     display: flex; gap: 10px; overflow-x: auto; overscroll-behavior-x: contain;
@@ -154,36 +138,33 @@
   }
   .cards::-webkit-scrollbar { display: none; }
   .card {
-    flex: 0 0 min(84%, 360px); scroll-snap-align: center;
-    height: clamp(158px, 25vh, 204px); min-width: 0;
-    display: flex; flex-direction: column; gap: 4px; padding: 12px 14px;
-    border: 1px solid var(--line); border-radius: var(--radius); background: var(--glass-solid);
+    flex: 0 0 min(86%, 360px); scroll-snap-align: center;
+    height: clamp(150px, 23vh, 188px); min-width: 0;
+    display: flex; flex-direction: column; gap: 2px; padding: 14px 16px 12px;
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
     transition: border-color .2s;
   }
-  .card.active { border-color: rgba(255, 181, 71, .6); }
-  .card-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .idx { font: 700 11px var(--mono); color: var(--muted); }
-  .time { font: 700 12px var(--mono); color: var(--signal); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .leg { flex: 1; min-width: 0; font: 600 10.5px var(--mono); letter-spacing: .04em; color: var(--muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .chip { flex: none; padding: 2px 8px; border-radius: 999px; font: 700 9.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); }
-  .chip.next { background: var(--signal); border-color: var(--signal); color: var(--signal-ink); }
-  .chip.done { background: transparent; border-color: var(--ok); color: var(--ok); }
-  .card h3 { margin: 0; font-size: 1.08rem; line-height: 1.2; text-wrap: balance; }
+  .card.active { border-color: rgba(245, 178, 78, .55); }
+  .card-top { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: .82rem; color: var(--muted); }
+  .card-top .time { color: var(--signal); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .card-top .leg { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tag { flex: none; padding: 2px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+  .tag.next { background: var(--signal); color: var(--signal-ink); }
+  .tag.done { background: rgba(79, 209, 161, .14); color: var(--ok); }
+  .card h3 { margin: 2px 0 0; font-size: 1.1rem; line-height: 1.2; }
   .card.done h3 { color: var(--muted); }
-  .notes { flex: 1; min-height: 0; overflow-y: auto; margin: 2px 0 0; padding: 0; list-style: none; font-size: .9rem; color: var(--soft); }
-  .notes li { position: relative; padding-left: 14px; margin: 2px 0; }
-  .notes li::before { content: ""; position: absolute; left: 2px; top: .6em; width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
+  .notes { flex: 1; min-height: 0; overflow-y: auto; margin: 4px 0 0; padding: 0; list-style: none; font-size: .9rem; color: var(--soft); }
+  .notes li { margin: 1px 0; }
   .notes li.warn { color: var(--alert); }
-  .notes li.warn::before { background: var(--alert); }
-  .card-actions { display: flex; gap: 8px; padding-top: 6px; }
+  .card-actions { display: flex; gap: 8px; padding-top: 8px; }
   .act {
-    flex: 1; min-width: 0; min-height: 44px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .03);
-    color: var(--text); font: 600 13px var(--ui); text-decoration: none; cursor: pointer; white-space: nowrap;
+    flex: 1; min-width: 0; min-height: 44px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 0; border-radius: 12px; background: rgba(255, 255, 255, .06);
+    color: var(--text); font: 600 .9rem var(--ui); text-decoration: none; cursor: pointer; white-space: nowrap;
   }
   .act svg.i { width: 17px; height: 17px; }
-  .act.done-btn[aria-pressed="true"], .toast .act { background: var(--ok); border-color: var(--ok); color: var(--ok-ink); }
-  .act.planb { border-color: var(--alert); color: var(--alert); }
+  .act.done-btn[aria-pressed="true"], .act.primary { background: var(--ok); color: var(--ok-ink); }
+  .act.planb { color: var(--alert); }
   @media (max-width: 440px) {
     .card-actions.crowded { gap: 6px; }
     .card-actions.crowded .act svg.i { display: none; }
@@ -196,12 +177,13 @@
     margin: 0 auto; max-width: 620px; overflow-y: auto; overscroll-behavior: contain;
     padding-block: 8px 24px;
     padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px));
-    background: var(--glass-solid); border: 1px solid var(--line); border-bottom: 0; border-radius: 22px 22px 0 0;
+    background: var(--panel); border: 1px solid var(--line); border-bottom: 0; border-radius: 22px 22px 0 0;
     box-shadow: 0 -12px 40px rgba(0, 0, 0, .5);
   }
-  .sheet-head { position: sticky; top: -8px; display: flex; align-items: center; gap: 12px; padding: 12px 0 10px; background: var(--glass-solid); }
+  .sheet-head { position: sticky; top: -8px; display: flex; align-items: center; gap: 12px; padding: 12px 0 10px; background: var(--panel); }
   .sheet-head h2 { flex: 1; margin: 0; font-size: 1.2rem; }
-  .icon-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; border: 1px solid var(--line); background: transparent; cursor: pointer; }
+  .sheet-head .count { color: var(--muted); font-size: .9rem; }
+  .icon-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .06); cursor: pointer; }
   .pack { list-style: none; margin: 0; padding: 0; }
   .pack li + li { border-top: 1px solid var(--line); }
   .pack label { display: flex; align-items: center; gap: 14px; min-height: 58px; padding: 8px 0; cursor: pointer; }
@@ -214,29 +196,27 @@
   .pack input:checked::after { content: ""; width: 10px; height: 6px; border: solid var(--ok-ink); border-width: 0 0 2.5px 2.5px; transform: translateY(-2px) rotate(-45deg); }
   .pack input:checked + span { color: var(--muted); text-decoration: line-through; }
   .pack small { display: block; color: var(--muted); font-size: .85rem; }
-  .alert-box { border: 1px solid var(--alert); background: var(--alert-bg); border-radius: 14px; padding: 12px 14px; margin: 4px 0 14px; }
+  .alert-box { border-radius: 14px; padding: 12px 14px; margin: 4px 0 14px; background: rgba(255, 138, 107, .1); color: var(--soft); }
   .alert-box strong { display: block; color: var(--alert); margin-bottom: 2px; }
   .sheet p { margin: 0 0 12px; color: var(--soft); }
   .sheet h3 { margin: 18px 0 6px; font-size: 1rem; }
-  .opt { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
+  .opt { border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; background: rgba(255, 255, 255, .04); }
   .opt .addr { color: var(--muted); font-size: .9rem; }
   .opt ul { margin: 8px 0 10px; padding-left: 18px; color: var(--soft); }
   .opt .card-actions { padding-top: 0; }
-  .reset { width: 100%; min-height: 48px; margin-top: 8px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; }
-  .reset.armed { border-color: var(--alert); color: var(--alert); }
-  .fine { font-size: .82rem; color: var(--muted); }
+  .sheet-btn { width: 100%; min-height: 48px; margin-top: 8px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; }
+  .sheet-btn.armed { border-color: var(--alert); color: var(--alert); }
+  .fine { font-size: .85rem; color: var(--muted); }
 
   @media (prefers-reduced-motion: reduce) {
-    .ticker-track { animation: none; }
-    .ring .ring-fg, .card { transition: none; }
+    .status-text, .card { transition: none; }
   }
-  @media (max-height: 760px) {
-    .rail { gap: 5px; }
-    .tool { width: 46px; min-height: 42px; padding: 0; }
-    .tool span { display: none; }
+  @media (max-height: 700px) {
+    .brand p { display: none; }
+    .tool { width: 44px; height: 44px; }
   }
   @media (min-width: 760px) {
-    .card { flex-basis: 320px; }
+    .card { flex-basis: 330px; }
   }
 </style>
 </head>
@@ -247,37 +227,33 @@
   <header class="hud-top" id="hudTop">
     <div class="bar">
       <div class="brand">
-        <span class="eyebrow">Sun 18 Oct 2026</span>
         <h1>Mt Wilson &amp; Bilpin</h1>
+        <p>Sunday 18 October</p>
       </div>
-      <span class="clock" id="clock" aria-label="Current time"></span>
-      <div class="ring" role="img" id="ring" aria-label="0 of 6 stops done">
-        <svg viewBox="0 0 46 46" aria-hidden="true"><circle class="ring-bg" cx="23" cy="23" r="19"/><circle class="ring-fg" id="ringFg" cx="23" cy="23" r="19"/></svg>
-        <span id="ringText">0/6</span>
-      </div>
+      <button type="button" class="head-btn" id="btnPack" aria-label="Pack list"></button>
+      <button type="button" class="head-btn icon-only" id="btnInfo" aria-label="Trip info"></button>
     </div>
-    <div class="ticker" role="status"><div class="ticker-track" id="ticker"></div></div>
+    <div class="status" id="status" role="status">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span class="status-text" id="statusText"></span>
+      <span class="progress" id="progress"></span>
+    </div>
   </header>
 
   <nav class="rail" aria-label="Map tools">
-    <button type="button" class="tool" id="btnGps" aria-pressed="false"></button>
-    <button type="button" class="tool" id="btnFollow" aria-pressed="false" disabled></button>
-    <button type="button" class="tool" id="btnOverview"></button>
-    <button type="button" class="tool" id="btnTour" aria-pressed="false"></button>
-    <button type="button" class="tool" id="btnPack"></button>
-    <button type="button" class="tool" id="btnInfo"></button>
+    <button type="button" class="tool" id="btnGps" aria-label="Show my location"></button>
+    <button type="button" class="tool" id="btnOverview" aria-label="Show whole route"></button>
+    <button type="button" class="tool" id="btnTour" aria-label="Play the day"></button>
   </nav>
 
-  <div class="telemetry" id="telemetry">GPS off</div>
   <div class="toast" id="arrive" hidden role="status">
     <span id="arriveText"></span>
-    <button type="button" class="act" id="arriveBtn">Tick off</button>
+    <button type="button" class="act primary" id="arriveBtn" style="flex:none">Tick off</button>
   </div>
 
   <section class="dock" id="dock" aria-label="Stops">
     <div class="scrub">
       <div class="scrub-head">
-        <span class="eyebrow">Plan</span>
         <strong id="planClock">8:30am</strong>
         <span class="plan-text" id="planText"></span>
         <button type="button" class="link" id="planNow" hidden>Now</button>
@@ -293,7 +269,7 @@
   <div class="scrim" id="scrim" hidden></div>
 
   <section class="sheet" id="sheetPack" role="dialog" aria-modal="true" aria-labelledby="packTitle" hidden>
-    <div class="sheet-head"><h2 id="packTitle">Pack list</h2><span class="eyebrow" id="packCount"></span><button type="button" class="icon-btn" data-close aria-label="Close"></button></div>
+    <div class="sheet-head"><h2 id="packTitle">Pack list</h2><span class="count" id="packCount"></span><button type="button" class="icon-btn" data-close aria-label="Close"></button></div>
     <ul class="pack" id="pack"></ul>
   </section>
 
@@ -302,11 +278,12 @@
     <div class="alert-box"><strong>No dogs in the national park</strong>Keep the dogs out of the national park around Mt Wilson, including the Cathedral of Ferns loop at Cathedral Reserve.</div>
     <h3>Before you leave</h3>
     <p>Nooroo's spring 2026 opening isn't confirmed online. Call (02) 4756 2018. If it's closed, use Plan B on the Nooroo card. Book Hillbilly on (02) 4567 0965.</p>
-    <h3>Live GPS</h3>
-    <p id="gpsHelp">Tap GPS and allow location. It works without phone reception and keeps the screen awake while on, so keep the phone on a charger.</p>
-    <h3>About this map</h3>
-    <p class="fine">Offline sketch map: the road, pins and terrain are hand-placed approximations, with heights exaggerated ×4. The blue dot is your real GPS position. Drag to rotate, pinch to zoom, and tap a pin or swipe the cards to fly to a stop. Tour plays the day from 8:30am.</p>
-    <button type="button" class="reset" id="reset">Reset all ticks</button>
+    <h3>Location</h3>
+    <p id="gpsHelp">Tap the location button to show where you are. It works without phone reception and keeps the screen awake, so keep the phone on a charger.</p>
+    <button type="button" class="sheet-btn" id="gpsOff" hidden>Turn off location</button>
+    <h3>Using the map</h3>
+    <p class="fine">Drag to rotate, pinch to zoom, and swipe the cards or tap a pin to fly to a stop. The play button runs through the day. The road, pins and terrain are approximate, with heights exaggerated ×4; the blue dot is your real position.</p>
+    <button type="button" class="sheet-btn" id="reset">Reset all ticks</button>
   </section>
 
   <section class="sheet" id="sheetPlanB" role="dialog" aria-modal="true" aria-labelledby="planBTitle" hidden>
@@ -357,28 +334,28 @@
   var NOOROO = [-33.4995, 150.3835, 1005];
 
   var stops = [
-    { id: "leave", time: "8:30am", title: "Leave Kellyville", addr: "Kellyville NSW",
-      leg: "Start",
+    { id: "leave", time: "8:30am", title: "Leave Kellyville", short: "Kellyville", addr: "Kellyville NSW",
+      leg: "Start of the day",
       notes: ["Drive via Richmond, Kurrajong and Bells Line of Road (~1h30).", "Leads, poo bags, water and bowls in the car."] },
-    { id: "fire", time: "10:00am", title: "Mount Wilson Fire Station", addr: "47 The Avenue, Mount Wilson NSW 2786",
-      leg: "Drive ~1h30",
-      notes: ["Park here. Public toilets.", "Walk ~10 min along The Avenue (Mt Wilson Village Walk) to Church Lane.",
+    { id: "fire", time: "10:00am", title: "Mount Wilson Fire Station", short: "Fire Station", addr: "47 The Avenue, Mount Wilson NSW 2786",
+      leg: "~1h30 drive",
+      notes: ["Park here. Public toilets.", "Walk ~10 min along The Avenue to Church Lane.",
         { warn: "No dogs in the national park, including the Cathedral of Ferns loop." }] },
-    { id: "nooroo", time: "10:15–11:00", title: "Nooroo Garden", addr: "11–15 Church Ln, Mount Wilson NSW 2786",
-      leg: "Walk ~10 min",
+    { id: "nooroo", time: "10:15–11:00", title: "Nooroo Garden", short: "Nooroo Garden", addr: "11–15 Church Ln, Mount Wilson NSW 2786",
+      leg: "~10 min walk",
       phone: "0247562018", phoneLabel: "(02) 4756 2018", planB: true,
-      notes: [{ warn: "Spring 2026 opening isn't confirmed online. Call ahead." }, "Dogs welcome on lead.", "Flat, walker-accessible paths.",
-        "Wisteria near peak in late October.", "Entry ~$12–15pp, cards OK.", "Kiosk and toilet."] },
-    { id: "hillbilly", time: "11:45–1:30", title: "Hillbilly Cider Shed", addr: "2230 Bells Line of Rd, Bilpin NSW 2758",
-      leg: "Walk back · drive ~30 min",
+      notes: [{ warn: "Spring opening isn't confirmed online. Call ahead." }, "Dogs welcome on lead. Flat, walker-friendly paths.",
+        "Wisteria near peak in late October.", "Entry ~$12–15pp, cards OK. Kiosk and toilet.", "Phone (02) 4756 2018"] },
+    { id: "hillbilly", time: "11:45–1:30", title: "Hillbilly Cider Shed", short: "Hillbilly Cider", addr: "2230 Bells Line of Rd, Bilpin NSW 2758",
+      leg: "Walk back, then ~30 min drive",
       phone: "0245670965", phoneLabel: "(02) 4567 0965",
-      notes: ["Cnr Johnsons Rd.", "Lunch on the lawn with the dogs. Wood-fired pizza.", "Non-alcoholic options for Ann.", "Open 10am–6pm weekends. Book ahead."] },
-    { id: "bellbird", time: "1:50pm", title: "Bellbird Lookout", optional: true, addr: "1183 Bells Line of Rd, Kurrajong Heights NSW 2758",
-      leg: "Drive ~20 min",
+      notes: ["Lunch on the lawn with the dogs. Wood-fired pizza.", "Non-alcoholic options for Ann.", "Open 10am–6pm weekends. Book ahead.", "Cnr Johnsons Rd · (02) 4567 0965"] },
+    { id: "bellbird", time: "1:50pm", title: "Bellbird Lookout", short: "Bellbird Lookout", optional: true, addr: "1183 Bells Line of Rd, Kurrajong Heights NSW 2758",
+      leg: "~20 min drive · optional",
       notes: ["Only turn in when heading downhill (east).", "Toilets."] },
-    { id: "home", time: "~2:45pm", title: "Home to Kellyville", addr: "Kellyville NSW",
-      leg: "Drive ~45 min",
-      notes: ["~45 min drive home."] }
+    { id: "home", time: "~2:45pm", title: "Home to Kellyville", short: "Home", addr: "Kellyville NSW",
+      leg: "~45 min drive",
+      notes: ["Home by about 2:45pm."] }
   ];
 
   var PLAN_B = [
@@ -399,12 +376,11 @@
   ];
 
   var ICONS = {
-    gps: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
-    follow: '<path d="M12 3l7 18-7-4.5L5 21z"/>',
+    locate: '<path d="M12 3l7.5 18-7.5-4.5L4.5 21z"/>',
     overview: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
     play: '<path d="M8 5l11 7-11 7z"/>',
     pause: '<path d="M9 5v14M15 5v14"/>',
-    pack: '<path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 6l1.5 1.5L7.5 5M3.5 12l1.5 1.5 2.5-2.5M3.5 18l1.5 1.5 2.5-2.5"/>',
+    pack: '<rect x="5" y="7" width="14" height="13" rx="3"/><path d="M9 7V5.5A1.5 1.5 0 0110.5 4h3A1.5 1.5 0 0115 5.5V7M5 12h14"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6v.4"/>',
     phone: '<path d="M5 4h3.5l2 5-2.4 1.5a11 11 0 005.4 5.4L15 13.5l5 2V19a2 2 0 01-2 2A15 15 0 013 6a2 2 0 012-2z"/>',
     pin: '<path d="M12 21s-6.5-6-6.5-11.5a6.5 6.5 0 0113 0C18.5 15 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.3"/>',
@@ -442,20 +418,12 @@
     return a;
   }
 
-  // ---------- Tool rail ----------
-  function setTool(id, iconName, label) {
-    var b = $(id), badge = b.querySelector(".badge");
-    b.innerHTML = icon(iconName) + "<span>" + label + "</span>";
-    b.setAttribute("aria-label", label);
-    if (badge) b.appendChild(badge);
-  }
-  setTool("btnGps", "gps", "GPS");
-  setTool("btnFollow", "follow", "Follow");
-  setTool("btnOverview", "overview", "Overview");
-  setTool("btnTour", "play", "Tour");
-  setTool("btnPack", "pack", "Pack");
-  $("btnPack").appendChild(el("b", { class: "badge", id: "packBadge", text: "0/6" }));
-  setTool("btnInfo", "info", "Info");
+  // ---------- Buttons ----------
+  $("btnGps").innerHTML = icon("locate");
+  $("btnOverview").innerHTML = icon("overview");
+  $("btnTour").innerHTML = icon("play");
+  $("btnPack").innerHTML = icon("pack") + '<span class="count" id="packBadge">0/6</span>';
+  $("btnInfo").innerHTML = icon("info");
   Array.prototype.forEach.call(document.querySelectorAll("[data-close]"), function (b) { b.innerHTML = icon("close"); });
 
   // ---------- Sheets ----------
@@ -474,7 +442,7 @@
 
   // ---------- Stop cards ----------
   var cardsEl = $("cards"), cardById = {};
-  stops.forEach(function (s, i) {
+  stops.forEach(function (s) {
     var doneBtn = el("button", { type: "button", class: "act done-btn", "aria-pressed": "false", html: icon("check") + "<span>Done</span>" });
     doneBtn.addEventListener("click", function () { state.stops[s.id] = !state.stops[s.id]; save(); render(); });
     var acts = [doneBtn];
@@ -485,18 +453,14 @@
       pb.addEventListener("click", function () { showSheet("sheetPlanB"); });
       acts.push(pb);
     }
-    var title = s.title + (s.optional ? " (optional)" : "");
-    var notes = el("ul", { class: "notes" }, s.notes.map(noteItem));
-    if (s.phone) notes.appendChild(el("li", { text: "Phone " + s.phoneLabel }));
-    var card = el("article", { class: "card", "data-id": s.id, "aria-label": s.time + " " + title }, [
+    var card = el("article", { class: "card", "data-id": s.id, "aria-label": s.time + " " + s.title }, [
       el("div", { class: "card-top" }, [
-        el("span", { class: "idx", text: "0" + (i + 1) }),
         el("span", { class: "time", text: s.time }),
         el("span", { class: "leg", text: s.leg }),
-        el("span", { class: "chip" })
+        el("span", { class: "tag" })
       ]),
-      el("h3", { text: title }),
-      notes,
+      el("h3", { text: s.title }),
+      el("ul", { class: "notes" }, s.notes.map(noteItem)),
       el("div", { class: "card-actions" + (acts.length > 3 ? " crowded" : "") }, acts)
     ]);
     card.addEventListener("click", function (e) { if (!e.target.closest(".act")) selectStop(s.id, { fly: true, scroll: true }); });
@@ -560,33 +524,37 @@
     return null;
   }
 
-  // ---------- Ticker ----------
-  var tickerHtml = "";
-  function setTicker(items) {
-    var html = items.join("<i>◆</i>") + "<i>◆</i>";
-    if (html === tickerHtml) return;
-    tickerHtml = html;
-    var t = $("ticker");
-    t.innerHTML = html + html;
-    t.style.animationDuration = Math.max(20, t.textContent.length * 0.11) + "s";
+  // ---------- Status line: one calm message at a time ----------
+  var statusMsgs = [], statusIdx = 0, statusShown = "";
+  function showStatus() {
+    var m = statusMsgs[statusIdx % statusMsgs.length];
+    if (!m) return;
+    var html = esc(m.text) + (m.sub ? " <small>· " + esc(m.sub) + "</small>" : "");
+    var box = $("status"), t = $("statusText");
+    box.className = "status" + (m.kind ? " " + m.kind : "");
+    if (html !== statusShown) { t.innerHTML = html; statusShown = html; }
   }
+  function setStatus(msgs) { statusMsgs = msgs; if (statusIdx >= msgs.length) statusIdx = 0; showStatus(); }
+  setInterval(function () {
+    if (statusMsgs.length < 2) return;
+    var t = $("statusText");
+    t.classList.add("fade");
+    setTimeout(function () { statusIdx = (statusIdx + 1) % statusMsgs.length; showStatus(); t.classList.remove("fade"); }, 300);
+  }, 5000);
 
   function render() {
     var done = 0, next = nextStop();
     stops.forEach(function (s) {
-      var on = !!state.stops[s.id], card = cardById[s.id], chip = card.querySelector(".chip");
+      var on = !!state.stops[s.id], card = cardById[s.id], tag = card.querySelector(".tag");
       var isNext = !!next && next.id === s.id;
       if (on) done++;
       card.classList.toggle("done", on);
       card.querySelector(".done-btn").setAttribute("aria-pressed", on ? "true" : "false");
-      chip.className = "chip" + (on ? " done" : isNext ? " next" : "");
-      chip.textContent = on ? "Done" : isNext ? "Next" : s.optional ? "Optional" : "Later";
+      tag.className = "tag" + (on ? " done" : isNext ? " next" : "");
+      tag.textContent = on ? "Done" : isNext ? "Next" : "";
+      tag.hidden = !on && !isNext;
     });
-    var C = 2 * Math.PI * 19, fg = $("ringFg");
-    fg.style.strokeDasharray = C;
-    fg.style.strokeDashoffset = C * (1 - done / stops.length);
-    $("ringText").textContent = done + "/" + stops.length;
-    $("ring").setAttribute("aria-label", done + " of " + stops.length + " stops done");
+    $("progress").textContent = done + " of " + stops.length;
 
     var packed = 0;
     pack.forEach(function (p) { var on = !!state.pack[p.id]; if (on) packed++; $("p-" + p.id).checked = on; });
@@ -602,11 +570,11 @@
     var layer = document.createElement("canvas"), lctx = layer.getContext("2d");
     var scrub = $("scrubCanvas"), sctx = scrub.getContext("2d");
     var slider = $("planTime");
-    var MONO = 'ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace';
+    var FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     var DEG = Math.PI / 180, EX = 4, NEAR = 300;
     var cs = getComputedStyle(document.documentElement);
     function tok(n) { return cs.getPropertyValue(n).trim(); }
-    var T = { signal: tok("--signal"), ok: tok("--ok"), gps: tok("--gps"), text: tok("--text"), muted: tok("--muted"), ink: tok("--ink") };
+    var T = { signal: tok("--signal"), ok: tok("--ok"), gps: tok("--gps"), text: tok("--text"), muted: tok("--muted"), ink: tok("--ink"), panel: tok("--panel") };
 
     // Flat local projection in metres around the middle of the route
     var LAT0 = -33.6, LON0 = 150.66;
@@ -618,23 +586,23 @@
     ROAD.forEach(function (r, i) {
       var p = toXY(r[0], r[1]);
       if (i) along += Math.hypot(p.x - road[i - 1].x, p.y - road[i - 1].y);
-      p.e = r[2]; p.s = along;
+      p.e = r[2];
       road.push(p);
       if (r[3]) tagIdx[r[3]] = i;
     });
-    var noo = toXY(NOOROO[0], NOOROO[1]); noo.e = NOOROO[2]; noo.s = along;
+    var noo = toXY(NOOROO[0], NOOROO[1]); noo.e = NOOROO[2];
     var stopPos = {
       leave: road[0], home: road[0], fire: road[tagIdx.fire], nooroo: noo,
       hillbilly: road[tagIdx.hillbilly], bellbird: road[tagIdx.bellbird]
     };
 
     function nearest(x, y) {
-      var best = { d2: Infinity, e: 0, s: 0 };
+      var best = { d2: Infinity, e: 0 };
       for (var i = 0; i < road.length - 1; i++) {
         var a = road[i], b = road[i + 1], dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy;
         var t = clamp(L ? ((x - a.x) * dx + (y - a.y) * dy) / L : 0, 0, 1);
         var px = a.x + t * dx - x, py = a.y + t * dy - y, d2 = px * px + py * py;
-        if (d2 < best.d2) { best.d2 = d2; best.e = a.e + t * (b.e - a.e); best.s = a.s + t * (b.s - a.s); }
+        if (d2 < best.d2) { best.d2 = d2; best.e = a.e + t * (b.e - a.e); }
       }
       return best;
     }
@@ -652,7 +620,7 @@
       return Math.max(5, e + drop * (bumps - gorge));
     }
 
-    var RAMP = [[0, [26, 44, 48]], [200, [30, 60, 60]], [500, [34, 78, 70]], [850, [44, 92, 78]], [1100, [92, 104, 88]]];
+    var RAMP = [[0, [30, 44, 46]], [200, [34, 58, 56]], [500, [38, 74, 64]], [850, [48, 88, 72]], [1100, [96, 104, 88]]];
     function ramp(h) {
       for (var k = 1; k < RAMP.length; k++) if (h <= RAMP[k][0]) {
         var a = RAMP[k - 1], b = RAMP[k], t = (h - a[0]) / (b[0] - a[0]);
@@ -673,7 +641,7 @@
       var a = verts[ia], b = verts[ib], c = verts[ic], d = verts[id];
       var ux = c.x - a.x, uy = c.y - a.y, uz = c.z - a.z, vx = d.x - b.x, vy = d.y - b.y, vz = d.z - b.z;
       var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = Math.hypot(nx, ny, nz) * (nz < 0 ? -1 : 1);
-      var shade = 0.6 + 0.6 * Math.max(0, (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
+      var shade = 0.62 + 0.58 * Math.max(0, (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
       quads.push({ v: [ia, ib, ic, id], rgb: ramp((a.h + b.h + c.h + d.h) / 4).map(function (v) { return v * shade; }) });
     }
 
@@ -693,13 +661,13 @@
     }
     var roadDense = densify(road), walkDense = densify([stopPos.fire, noo]);
 
-    var TOWNS = [[7, "Windsor"], [9, "Richmond"], [14, "Kurrajong"], [21, "Bilpin"], [24, "Mt Tomah"]];
+    var TOWNS = [[9, "Richmond"], [14, "Kurrajong"], [21, "Bilpin"], [24, "Mt Tomah"]];
     var PINS = [
-      { ids: ["leave", "home"], num: "1·6", label: "Kellyville", stem: 30 },
-      { ids: ["fire"], num: "2", label: "Fire Station", stem: 26 },
-      { ids: ["nooroo"], num: "3", label: "Nooroo Garden", stem: 58 },
-      { ids: ["hillbilly"], num: "4", label: "Hillbilly Cider", stem: 36 },
-      { ids: ["bellbird"], num: "5", label: "Bellbird Lookout", stem: 36 }
+      { ids: ["leave", "home"], num: "1", label: "Kellyville" },
+      { ids: ["fire"], num: "2", label: "Fire Station" },
+      { ids: ["nooroo"], num: "3", label: "Nooroo Garden" },
+      { ids: ["hillbilly"], num: "4", label: "Hillbilly Cider" },
+      { ids: ["bellbird"], num: "5", label: "Bellbird Lookout" }
     ];
 
     // ---- The day's plan, as positions over time (minutes after midnight) ----
@@ -710,17 +678,17 @@
     }
     var FI = tagIdx.fire, HB = tagIdx.hillbilly, BB = tagIdx.bellbird;
     var PLAN = [
-      { t0: 0, t1: 510, at: road[0], stop: "leave", text: "At home in Kellyville, getting ready" },
+      { t0: 0, t1: 510, at: road[0], stop: "leave", text: "Getting ready at home" },
       { t0: 510, t1: 600, path: slice(0, FI), stop: "fire", text: "Driving up Bells Line of Road" },
       { t0: 600, t1: 615, path: [stopPos.fire, noo], stop: "nooroo", walk: true, text: "Walking along The Avenue" },
       { t0: 615, t1: 660, at: noo, stop: "nooroo", walk: true, text: "Exploring Nooroo Garden" },
       { t0: 660, t1: 670, path: [noo, stopPos.fire], stop: "nooroo", walk: true, text: "Walking back to the car" },
       { t0: 670, t1: 705, path: slice(FI, HB), stop: "hillbilly", text: "Driving to Hillbilly" },
-      { t0: 705, t1: 810, at: road[HB], stop: "hillbilly", text: "Lunch on the lawn at Hillbilly" },
-      { t0: 810, t1: 830, path: slice(HB, BB), stop: "bellbird", text: "Driving down to Bellbird Lookout" },
+      { t0: 705, t1: 810, at: road[HB], stop: "hillbilly", text: "Lunch at Hillbilly" },
+      { t0: 810, t1: 830, path: slice(HB, BB), stop: "bellbird", text: "Driving to Bellbird Lookout" },
       { t0: 830, t1: 840, at: road[BB], stop: "bellbird", text: "Bellbird Lookout (optional)" },
       { t0: 840, t1: 885, path: slice(BB, 0), stop: "home", text: "Driving home" },
-      { t0: 885, t1: 1441, at: road[0], stop: "home", text: "Home in Kellyville" }
+      { t0: 885, t1: 1441, at: road[0], stop: "home", text: "Home" }
     ];
     var STOP_TIMES = [[510, 0], [600, 1], [615, 2], [705, 3], [830, 4], [885, 5]];
     function onPath(path, f) {
@@ -749,7 +717,7 @@
     }
 
     // ---- Camera ----
-    var OVERVIEW = { tx: (W0 + E0) / 2, ty: (S0 + N0) / 2, tz: 1200, yaw: 315, pitch: 44, dist: 72000 };
+    var OVERVIEW = { tx: (W0 + E0) / 2, ty: (S0 + N0) / 2, tz: 1200, yaw: 315, pitch: 44, dist: 70000 };
     function copy(o) { var r = {}; for (var k in o) r[k] = o[k]; return r; }
     var cam = copy(OVERVIEW), goal = copy(OVERVIEW);
     var P = { W: 0, H: 0, F: 1, ox: 0, oy: 0, cy: 1, sy: 0, cp: 1, sp: 0 }, dpr = 1;
@@ -781,7 +749,7 @@
     function strokePath(g, pts, width, color, dash, glow) {
       g.setLineDash(dash || []); g.lineWidth = width; g.strokeStyle = color;
       g.lineJoin = "round"; g.lineCap = "round";
-      g.shadowColor = glow || "transparent"; g.shadowBlur = glow ? 14 : 0;
+      g.shadowColor = glow || "transparent"; g.shadowBlur = glow ? 8 : 0;
       g.beginPath();
       var pen = false;
       pts.forEach(function (p) {
@@ -791,13 +759,13 @@
       });
       g.stroke(); g.setLineDash([]); g.shadowBlur = 0;
     }
-    var BG = [7, 11, 15];
+    var BG = [10, 15, 19];
     function renderLayer() {
       setup();
       var g = lctx;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       var bg = g.createRadialGradient(P.ox, P.oy, 0, P.ox, P.oy, Math.max(P.W, P.H) * 0.8);
-      bg.addColorStop(0, "#132029"); bg.addColorStop(1, T.ink);
+      bg.addColorStop(0, "#141e25"); bg.addColorStop(1, T.ink);
       g.fillStyle = bg; g.fillRect(0, 0, P.W, P.H);
 
       var pv = verts.map(function (v) { return project(v.x, v.y, v.z); });
@@ -810,32 +778,28 @@
       items.sort(function (m, n) { return n.d - m.d; });
       items.forEach(function (it) {
         var f = clamp((it.d - 15000) / 110000, 0, 0.6), rgb = it.q.rgb;
-        var mix = [0, 1, 2].map(function (k) { return Math.round(rgb[k] + (BG[k] - rgb[k]) * f); });
-        g.fillStyle = "rgb(" + mix.join(",") + ")";
-        g.strokeStyle = "rgba(140,200,210," + (0.16 * (1 - f)).toFixed(3) + ")";
-        g.lineWidth = 0.7;
+        var col = "rgb(" + [0, 1, 2].map(function (k) { return Math.round(rgb[k] + (BG[k] - rgb[k]) * f); }).join(",") + ")";
+        g.fillStyle = col; g.strokeStyle = col; g.lineWidth = 0.7;
         g.beginPath();
         g.moveTo(it.p[0].x, it.p[0].y); g.lineTo(it.p[1].x, it.p[1].y);
         g.lineTo(it.p[2].x, it.p[2].y); g.lineTo(it.p[3].x, it.p[3].y);
         g.closePath(); g.fill(); g.stroke();
+        g.strokeStyle = "rgba(170,210,215," + (0.07 * (1 - f)).toFixed(3) + ")";
+        g.stroke();
       });
 
-      var w = clamp(P.F * 150 / cam.dist, 2.5, 7);
-      strokePath(g, roadDense, w + 3, "rgba(7,11,15,.85)");
-      strokePath(g, roadDense, w, T.signal, null, "rgba(255,181,71,.7)");
+      var w = clamp(P.F * 150 / cam.dist, 2.5, 6);
+      strokePath(g, roadDense, w + 2.5, "rgba(10,15,19,.8)");
+      strokePath(g, roadDense, w, T.signal, null, "rgba(245,178,78,.45)");
       strokePath(g, walkDense, w * 0.8, T.ok, [w * 0.5, w * 1.4]);
     }
 
-    function chip(text, x, y, color, strong) {
-      ctx.font = "700 10.5px " + MONO;
-      ctx.textBaseline = "middle"; ctx.textAlign = "left";
-      var tw = ctx.measureText(text).width, h = 20;
-      ctx.fillStyle = "rgba(12,18,24,.88)";
-      ctx.strokeStyle = strong ? color : "rgba(150,185,205,.25)"; ctx.lineWidth = 1;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(x, y - h / 2, tw + 14, h, 6); else ctx.rect(x, y - h / 2, tw + 14, h);
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = strong ? color : T.text; ctx.fillText(text, x + 7, y + 0.5);
+    function haloText(text, x, y, size, weight, color, align) {
+      ctx.font = weight + " " + size + "px " + FONT;
+      ctx.textAlign = align || "left"; ctx.textBaseline = "middle";
+      ctx.lineJoin = "round"; ctx.lineWidth = 4; ctx.strokeStyle = "rgba(10,15,19,.85)";
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = color; ctx.fillText(text, x, y);
     }
     var hits = [];
     function drawOverlay(ts) {
@@ -843,18 +807,16 @@
       ctx.drawImage(layer, 0, 0);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       setup();
-      var pulse = (ts % 1800) / 1800;
+      var pulse = (ts % 2000) / 2000;
 
-      // Town names
+      // Town names, quiet
       if (cam.dist < 95000) TOWNS.forEach(function (t) {
         var p = road[t[0]], s = project(p.x, p.y, p.e * EX + LIFT);
         if (s.d < NEAR) return;
-        ctx.font = "600 10px " + MONO; ctx.textAlign = "center"; ctx.textBaseline = "top";
-        ctx.fillStyle = "rgba(142,159,171,.9)";
-        ctx.fillText(t[1].toUpperCase(), s.x, s.y + 8);
+        haloText(t[1], s.x + 9, s.y + 1, 11, "500", "rgba(160,176,186,.75)");
       });
 
-      // Stop pins, far ones first
+      // Stop pins: numbered dots; only the next and the selected stop get a name
       var next = nextStop();
       hits = [];
       PINS.map(function (pin) {
@@ -867,90 +829,75 @@
           var done = pin.ids.every(function (id) { return state.stops[id]; });
           var isNext = !!next && pin.ids.indexOf(next.id) >= 0;
           var isActive = pin.ids.indexOf(activeId) >= 0;
-          var col = done ? T.ok : isNext ? T.signal : "#d5e0e7";
-          var top = s.y - pin.stem, r = isActive ? 13 : 11;
-          ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.8;
-          ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x, top + r); ctx.stroke();
-          ctx.globalAlpha = 1;
-          ctx.fillStyle = col; ctx.beginPath(); ctx.arc(s.x, s.y, 2.5, 0, 7); ctx.fill();
-          if (isNext && !done) {
-            ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.globalAlpha = 1 - pulse;
-            ctx.beginPath(); ctx.arc(s.x, top, r + 4 + 12 * pulse, 0, 7); ctx.stroke();
+          var r = isNext || isActive ? 11 : 9, y = s.y - 6;
+          if (isNext) {
+            ctx.strokeStyle = T.signal; ctx.lineWidth = 2; ctx.globalAlpha = 0.8 * (1 - pulse);
+            ctx.beginPath(); ctx.arc(s.x, y, r + 3 + 12 * pulse, 0, 7); ctx.stroke();
             ctx.globalAlpha = 1;
           }
-          ctx.fillStyle = "#0c1218"; ctx.strokeStyle = col; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(s.x, top, r, 0, 7); ctx.fill(); ctx.stroke();
-          ctx.fillStyle = col; ctx.font = "700 " + (pin.num.length > 1 ? 9 : 11) + "px " + MONO;
-          ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillText(done ? "✓" : pin.num, s.x, top + 0.5);
-          chip(pin.label.toUpperCase(), s.x + r + 5, top, col, isActive || isNext);
-          hits.push({ x: s.x, y: top, id: isNext ? next.id : pin.ids[0] });
+          ctx.fillStyle = done ? T.ok : isNext ? T.signal : T.panel;
+          ctx.strokeStyle = done || isNext ? "rgba(10,15,19,.9)" : "rgba(238,243,246,.85)";
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(s.x, y, r, 0, 7); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = done ? "#04140d" : isNext ? "#1f1505" : T.text;
+          ctx.font = "700 " + (r > 9 ? 12 : 10.5) + "px " + FONT; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(done ? "✓" : pin.num, s.x, y + 0.5);
+          if (isNext || isActive) haloText(pin.label, s.x + r + 6, y, 13, "600", T.text);
+          hits.push({ x: s.x, y: y, id: isNext ? next.id : pin.ids[0] });
         });
 
-      // Where the plan says we are
+      // Where the plan says we'd be: a small hollow ring, hidden while it sits on a pin
       var pl = planAt(planMin), ps = project(pl.x, pl.y, pl.z);
-      if (ps.d > NEAR) {
-        ctx.save(); ctx.translate(ps.x, ps.y); ctx.rotate(Math.PI / 4);
-        ctx.fillStyle = "#0c1218"; ctx.strokeStyle = T.signal; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.rect(-7, -7, 14, 14); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = T.signal; ctx.beginPath(); ctx.rect(-2.5, -2.5, 5, 5); ctx.fill();
-        ctx.restore();
-        chip("PLAN " + clock(planMin).toUpperCase(), ps.x + 13, ps.y + 16, T.signal, true);
+      var onPin = hits.some(function (h) { return Math.hypot(h.x - ps.x, h.y - ps.y) < 18; });
+      if (ps.d > NEAR && !onPin) {
+        ctx.strokeStyle = T.signal; ctx.lineWidth = 2.5; ctx.fillStyle = "rgba(10,15,19,.85)";
+        ctx.beginPath(); ctx.arc(ps.x, ps.y, 6, 0, 7); ctx.fill(); ctx.stroke();
       }
 
-      // Live GPS dot
+      // Live position
       if (fix) {
         var gs = project(fix.x, fix.y, fix.z);
         if (gs.d > NEAR) {
           ctx.fillStyle = T.gps;
-          ctx.globalAlpha = 0.45 * (1 - pulse);
-          ctx.beginPath(); ctx.arc(gs.x, gs.y, 9 + 26 * pulse, 0, 7); ctx.fill();
+          ctx.globalAlpha = 0.35 * (1 - pulse);
+          ctx.beginPath(); ctx.arc(gs.x, gs.y, 9 + 22 * pulse, 0, 7); ctx.fill();
           ctx.globalAlpha = 1;
-          ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(gs.x, gs.y, 10, 0, 7); ctx.fill();
-          ctx.fillStyle = T.gps; ctx.beginPath(); ctx.arc(gs.x, gs.y, 7, 0, 7); ctx.fill();
-          chip("YOU", gs.x + 14, gs.y - 14, T.gps, true);
+          ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(gs.x, gs.y, 9, 0, 7); ctx.fill();
+          ctx.fillStyle = T.gps; ctx.beginPath(); ctx.arc(gs.x, gs.y, 6.5, 0, 7); ctx.fill();
         }
       }
     }
 
-    // Time scrubber: the day's altitude over time, with numbered stop ticks
+    // Time slider track: the day's height above sea level, with a dot per stop
     function drawScrub() {
       var w = scrub.width / dpr, h = scrub.height / dpr;
       if (!w) return;
       var g = sctx;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.clearRect(0, 0, w, h);
-      function X(t) { return 2 + (w - 4) * (t - 480) / 420; }
-      function Y(e) { return h - 4 - (h - 16) * e / 1100; }
-      g.strokeStyle = "rgba(150,185,205,.12)"; g.lineWidth = 1;
-      for (var hr = 8; hr <= 15; hr++) { var hx = Math.round(X(hr * 60)) + 0.5; g.beginPath(); g.moveTo(hx, 12); g.lineTo(hx, h); g.stroke(); }
+      function X(t) { return 7 + (w - 14) * (t - 480) / 420; }
+      function Y(e) { return h - 6 - (h - 12) * e / 1100; }
       var pts = [];
       for (var t = 480; t <= 900; t += 3) pts.push([X(t), Y(planAt(t).e)]);
-      function area() {
-        g.beginPath(); g.moveTo(pts[0][0], h);
-        pts.forEach(function (p) { g.lineTo(p[0], p[1]); });
-        g.lineTo(pts[pts.length - 1][0], h); g.closePath();
-      }
-      var grad = g.createLinearGradient(0, 0, 0, h);
-      grad.addColorStop(0, "rgba(255,181,71,.22)"); grad.addColorStop(1, "rgba(255,181,71,0)");
-      area(); g.fillStyle = grad; g.fill();
+      function line() { g.beginPath(); pts.forEach(function (p, k) { if (k) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }); }
+      g.lineWidth = 2; g.lineCap = "round"; g.lineJoin = "round";
+      line(); g.strokeStyle = "rgba(170,195,210,.22)"; g.stroke();
       g.save(); g.beginPath(); g.rect(0, 0, X(planMin), h); g.clip();
-      grad = g.createLinearGradient(0, 0, 0, h);
-      grad.addColorStop(0, "rgba(255,181,71,.5)"); grad.addColorStop(1, "rgba(255,181,71,.05)");
-      area(); g.fillStyle = grad; g.fill();
+      line(); g.strokeStyle = T.signal; g.stroke();
       g.restore();
-      g.beginPath(); pts.forEach(function (p, k) { if (k) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); });
-      g.strokeStyle = T.signal; g.lineWidth = 1.5; g.stroke();
-      g.font = "700 9px " + MONO; g.textAlign = "center"; g.textBaseline = "top";
       STOP_TIMES.forEach(function (st) {
-        g.fillStyle = state.stops[stops[st[1]].id] ? T.ok : T.muted;
-        g.fillText(String(st[1] + 1), clamp(X(st[0]), 4, w - 4), 0);
+        var t = st[0], e = planAt(t).e;
+        g.fillStyle = state.stops[stops[st[1]].id] ? T.ok : "rgba(170,195,210,.55)";
+        g.beginPath(); g.arc(X(t), Y(e), 2.5, 0, 7); g.fill();
       });
       var n = nowMin();
       if (n !== null && n >= 480 && n <= 900) {
-        g.strokeStyle = T.gps; g.setLineDash([3, 3]); g.lineWidth = 1.5;
-        g.beginPath(); g.moveTo(X(n), 12); g.lineTo(X(n), h); g.stroke(); g.setLineDash([]);
+        g.strokeStyle = T.gps; g.setLineDash([2, 3]); g.lineWidth = 1.5;
+        g.beginPath(); g.moveTo(X(n), 0); g.lineTo(X(n), h); g.stroke(); g.setLineDash([]);
       }
+      var hx = X(clamp(planMin, 480, 900)), hy = Y(planAt(planMin).e);
+      g.fillStyle = T.signal; g.strokeStyle = T.ink; g.lineWidth = 3;
+      g.beginPath(); g.arc(hx, hy, 7, 0, 7); g.stroke(); g.fill();
     }
 
     var layerDirty = true, overlayDirty = true, lastFrame = 0;
@@ -965,8 +912,8 @@
       app.style.setProperty("--hud-h", hudH + "px");
       app.style.setProperty("--dock-h", dockH + "px");
       var visH = Math.max(160, P.H - hudH - dockH + 40);
-      P.ox = P.W / 2 - (P.W < 700 ? 22 : 0);
-      P.oy = hudH + visH / 2 - 10;
+      P.ox = P.W / 2 - (P.W < 700 ? 20 : 0);
+      P.oy = hudH + visH / 2 - 6;
       P.F = Math.max(Math.min(P.W, visH * 1.5), 260) * 1.15;
       var sr = scrub.getBoundingClientRect();
       scrub.width = Math.round(sr.width * dpr); scrub.height = Math.round(sr.height * dpr);
@@ -1014,7 +961,7 @@
           Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 10 && Date.now() - tapStart.t < 450) {
         var r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, best = null, bd = 30;
         hits.forEach(function (h) { var d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h; } });
-        if (best) { setFollow(false); selectStop(best.id, { fly: true, scroll: true }); }
+        if (best) selectStop(best.id, { fly: true, scroll: true });
       }
       delete pointers[e.pointerId];
       if (Object.keys(pointers).length < 2) pinch0 = null;
@@ -1028,13 +975,6 @@
     }, { passive: false });
 
     $("btnOverview").addEventListener("click", function () { stopTour(); setFollow(false); goal = copy(OVERVIEW); });
-    var follow = false;
-    function setFollow(on) {
-      follow = on;
-      $("btnFollow").setAttribute("aria-pressed", on ? "true" : "false");
-      if (on && fix) { stopTour(); focusOn(fix.x, fix.y, fix.z, 11000); }
-    }
-    $("btnFollow").addEventListener("click", function () { setFollow(!follow); });
 
     // ---- Tour: play the day with the camera riding along ----
     var tour = null, TOUR_SECONDS = 48;
@@ -1042,14 +982,16 @@
       setFollow(false);
       tour = { t0: performance.now() };
       planManual = true;
-      $("btnTour").setAttribute("aria-pressed", "true");
-      setTool("btnTour", "pause", "Pause");
+      $("btnTour").classList.add("touring");
+      $("btnTour").innerHTML = icon("pause");
+      $("btnTour").setAttribute("aria-label", "Pause the tour");
     }
     function stopTour() {
       if (!tour) return;
       tour = null;
-      $("btnTour").setAttribute("aria-pressed", "false");
-      setTool("btnTour", "play", "Tour");
+      $("btnTour").classList.remove("touring");
+      $("btnTour").innerHTML = icon("play");
+      $("btnTour").setAttribute("aria-label", "Play the day");
     }
     function stepTour(ts) {
       var m = 510 + Math.max(0, ts - tour.t0) / 1000 * (375 / TOUR_SECONDS);
@@ -1064,7 +1006,7 @@
     }
     $("btnTour").addEventListener("click", function () { if (tour) stopTour(); else startTour(); });
 
-    // ---- Plan-time scrubber ----
+    // ---- Plan-time slider ----
     var planManual = false, planMin = 510, lastPlanLabel = "";
     function nowMin() {
       var d = new Date();
@@ -1078,7 +1020,7 @@
       if (label !== lastPlanLabel) {
         lastPlanLabel = label;
         $("planClock").textContent = clock(planMin);
-        $("planText").textContent = pl.text;
+        $("planText").textContent = (n !== null && !planManual ? "Plan now: " : "Plan: ") + pl.text;
       }
       overlayDirty = true;
       drawScrub();
@@ -1096,13 +1038,13 @@
     $("planNow").addEventListener("click", function () { planManual = false; syncPlan(); });
     setInterval(syncPlan, 30000);
 
-    // ---- GPS ----
+    // ---- Location ----
+    // One button: off → on and following → on, free to look around (after a drag) → following again.
+    // Turn it off from Trip info.
     // The Claude artifact viewer injects window.claude and does not allow location access
     var IN_VIEWER = !!(window.claude && typeof window.claude.use === "function");
-    var VIEWER_MSG = "GPS isn't available in the Claude viewer. Open the Vercel link or the downloaded file for live GPS.";
-    var GPS_KEY = KEY + "-gps", watchId = null, fix = null, wakeLock = null, arriveId = null;
-    var tele = $("telemetry");
-    function setTele(text, live) { tele.textContent = text; tele.classList.toggle("live", !!live); }
+    var VIEWER_MSG = "Location isn't available in the Claude viewer. Open the Vercel link for live GPS.";
+    var GPS_KEY = KEY + "-gps", watchId = null, fix = null, wakeLock = null, arriveId = null, follow = false, gpsNote = "";
     function setGpsPref(on) { try { localStorage.setItem(GPS_KEY, on ? "1" : "0"); } catch (e) {} }
     function keepAwake() {
       try {
@@ -1111,36 +1053,49 @@
       } catch (e) {}
     }
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") keepAwake(); });
+    function paintGpsBtn() {
+      var b = $("btnGps");
+      b.classList.toggle("gps-on", watchId !== null && !follow);
+      b.classList.toggle("gps-follow", watchId !== null && follow);
+      b.setAttribute("aria-label", watchId === null ? "Show my location" : follow ? "Following you" : "Follow me");
+      $("gpsOff").hidden = watchId === null;
+    }
+    function setFollow(on) {
+      follow = on && watchId !== null;
+      if (follow && fix) focusOn(fix.x, fix.y, fix.z, 11000);
+      paintGpsBtn();
+    }
+    canvas.addEventListener("pointerdown", function () { if (follow) setFollow(false); });
 
     function startGps() {
-      if (IN_VIEWER) { setTele("GPS unavailable in the Claude viewer"); showSheet("sheetInfo"); return; }
-      if (!("geolocation" in navigator)) { setTele("This browser can't access GPS"); return; }
-      if (window.isSecureContext === false) { setTele("GPS needs the https:// (Vercel) link"); return; }
-      setTele("Finding you… allow location if asked", true);
+      if (IN_VIEWER) { gpsNote = VIEWER_MSG; updateStatus(); showSheet("sheetInfo"); return; }
+      if (!("geolocation" in navigator)) { gpsNote = "This browser can't access location"; updateStatus(); return; }
+      if (window.isSecureContext === false) { gpsNote = "Location needs the https:// (Vercel) link"; updateStatus(); return; }
+      gpsNote = "Finding you…";
       watchId = navigator.geolocation.watchPosition(onFix, onErr, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
-      $("btnGps").setAttribute("aria-pressed", "true");
       setGpsPref(true);
+      setFollow(true);
       keepAwake();
+      updateStatus();
     }
     function stopGps(msg) {
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-      watchId = null; fix = null;
-      setFollow(false); $("btnFollow").disabled = true;
-      $("btnGps").setAttribute("aria-pressed", "false");
-      setTele(msg || "GPS off");
+      watchId = null; fix = null; follow = false;
+      gpsNote = msg || "";
       $("arrive").hidden = true;
       setGpsPref(false);
       if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
-      overlayDirty = true; updateTicker();
+      paintGpsBtn();
+      overlayDirty = true; updateStatus();
     }
     function onErr(e) {
-      if (e.code === 1) stopGps("Location blocked. Allow it in browser settings, then tap GPS");
-      else if (!fix) setTele("Still looking for a GPS signal…", true);
+      if (e.code === 1) stopGps("Location is blocked. Allow it in your browser settings.");
+      else if (!fix) { gpsNote = "Looking for a GPS signal…"; updateStatus(); }
     }
     function onFix(pos) {
       var c = pos.coords, p = toXY(c.latitude, c.longitude);
-      fix = { x: p.x, y: p.y, z: height(p.x, p.y) * EX + LIFT, acc: c.accuracy, alt: c.altitude };
-      $("btnFollow").disabled = false;
+      fix = { x: p.x, y: p.y, z: height(p.x, p.y) * EX + LIFT, acc: c.accuracy };
+      gpsNote = "";
       if (follow) focusOn(fix.x, fix.y, fix.z, 11000);
       updateGps();
       overlayDirty = true;
@@ -1153,48 +1108,52 @@
       return Math.hypot(fix.x - sp.x, fix.y - sp.y);
     }
     function updateGps() {
-      if (!fix) return;
-      var next = nextStop(), d = distToNext(), prompt = null, parts = [];
-      parts.push(next ? fmtDist(d) + " to " + next.title : "All stops done");
-      if (fix.alt != null) parts.push(Math.round(fix.alt) + " m alt");
-      parts.push("±" + Math.round(fix.acc) + " m");
-      setTele(parts.join(" · "), true);
-      if (next) {
-        if (next.id === "leave") { if (d > 4000) prompt = "You're on the road. Tick off “Leave Kellyville”?"; }
-        else if (d < (next.id === "home" ? 3000 : 500)) prompt = "You're at " + next.title + ". Tick it off?";
+      if (fix) {
+        var next = nextStop(), d = distToNext(), prompt = null;
+        if (next) {
+          if (next.id === "leave") { if (d > 4000) prompt = "On the road? Tick off “Leave Kellyville”."; }
+          else if (d < (next.id === "home" ? 3000 : 500)) prompt = "You're at " + next.short + ". Tick it off?";
+        }
+        arriveId = prompt ? next.id : null;
+        $("arrive").hidden = !prompt;
+        if (prompt) $("arriveText").textContent = prompt;
       }
-      arriveId = prompt ? next.id : null;
-      $("arrive").hidden = !prompt;
-      if (prompt) $("arriveText").textContent = prompt;
+      updateStatus();
     }
     $("arriveBtn").addEventListener("click", function () {
       if (!arriveId) return;
       state.stops[arriveId] = true;
       save(); render();
     });
-    $("btnGps").addEventListener("click", function () { if (watchId === null) startGps(); else stopGps(); });
+    $("btnGps").addEventListener("click", function () {
+      if (watchId === null) startGps();
+      else setFollow(true);
+    });
+    $("gpsOff").addEventListener("click", function () { stopGps(); closeSheet(); });
 
-    function updateTicker() {
-      var next = nextStop(), d = distToNext(), items = [];
-      if (next) items.push("<b>Next</b> " + esc(next.time + " · " + next.title) + (d !== null ? " · " + fmtDist(d) : ""));
-      else items.push("<b>All stops done</b> · nice day out");
-      items.push('<span class="warn">No dogs in the national park around Mt Wilson, incl. the Cathedral of Ferns loop</span>');
-      if (!state.stops.nooroo) items.push("Nooroo spring opening unconfirmed · call (02) 4756 2018 · Plan B ready");
-      if (!state.stops.hillbilly) items.push("Hillbilly Cider · book ahead on (02) 4567 0965");
-      if (!state.stops.bellbird) items.push("Bellbird Lookout · turn in only when heading downhill (east)");
-      setTicker(items);
+    function updateStatus() {
+      var next = nextStop(), d = distToNext(), msgs = [];
+      if (gpsNote) msgs.push({ text: gpsNote, kind: "gps" });
+      else if (next && d !== null) msgs.push({ text: fmtDist(d) + " to " + next.short, sub: "next stop", kind: "gps" });
+      else if (next) msgs.push({ text: "Next: " + next.title, sub: next.time });
+      else msgs.push({ text: "All done. Nice day out!" });
+      if (!state.stops.fire || !state.stops.nooroo) msgs.push({ text: "No dogs in the national park around Mt Wilson", kind: "warn" });
+      if (!state.stops.nooroo) msgs.push({ text: "Call Nooroo before you go", sub: "(02) 4756 2018", kind: "warn" });
+      if (!state.stops.hillbilly) msgs.push({ text: "Book Hillbilly for lunch", sub: "(02) 4567 0965" });
+      setStatus(msgs);
     }
 
     // ---- Start ----
     layout();
     if (window.ResizeObserver) new ResizeObserver(layout).observe(document.body); else window.addEventListener("resize", layout);
     syncPlan();
+    paintGpsBtn();
     if (IN_VIEWER) $("gpsHelp").textContent = VIEWER_MSG;
     else try { if (localStorage.getItem(GPS_KEY) === "1") startGps(); } catch (e) {}
     requestAnimationFrame(frame);
 
     return {
-      update: function () { overlayDirty = true; updateGps(); updateTicker(); drawScrub(); },
+      update: function () { overlayDirty = true; updateGps(); drawScrub(); },
       flyToStop: function (id) {
         stopTour(); setFollow(false);
         var p = stopPos[id];
@@ -1204,7 +1163,7 @@
     };
   })();
 
-  // Reset lives in the Info sheet and needs a second tap to confirm
+  // Reset lives in Trip info and needs a second tap to confirm
   var resetBtn = $("reset"), resetTimer = null;
   resetBtn.addEventListener("click", function () {
     if (!resetTimer) {
@@ -1219,12 +1178,6 @@
     try { localStorage.removeItem(KEY); } catch (e) {}
     render();
   });
-
-  function tickClock() {
-    var d = new Date(), h = d.getHours(), m = d.getMinutes();
-    $("clock").textContent = (((h + 11) % 12) + 1) + ":" + (m < 10 ? "0" : "") + m + (h >= 12 ? "pm" : "am");
-  }
-  tickClock(); setInterval(tickClock, 15000);
 
   render();
   var first = nextStop() || stops[stops.length - 1];
