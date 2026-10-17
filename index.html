@@ -21,6 +21,11 @@
     --warn-line: #e0b44c;
     --warn-text: #5a4100;
     --done: #8a8f93;
+    --sky-top: #c9dfee;
+    --sky-bottom: #eef2ef;
+    --road: #e5792a;
+    --road-casing: #ffffff;
+    --gps: #1a73e8;
     --radius: 14px;
   }
   @media (prefers-color-scheme: dark) {
@@ -37,6 +42,11 @@
       --warn-line: #a5822c;
       --warn-text: #f6dc97;
       --done: #7b8085;
+      --sky-top: #0a111c;
+      --sky-bottom: #1f2a33;
+      --road: #f59a4a;
+      --road-casing: #15181b;
+      --gps: #4b9bff;
     }
   }
   * { box-sizing: border-box; }
@@ -164,6 +174,37 @@
   .reset { all: unset; box-sizing: border-box; min-height: 48px; padding: 0 22px; border-radius: 12px; border: 2px solid var(--line); color: var(--muted); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; }
   .reset:focus-visible { outline: 3px solid var(--accent); }
   footer { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 20px; }
+  [hidden] { display: none !important; }
+
+  /* 3D map */
+  .mapcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .map-wrap { position: relative; }
+  #map { display: block; width: 100%; height: min(62vh, 480px); touch-action: none; cursor: grab; }
+  .map-btns { position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; }
+  .map-btns button {
+    all: unset; box-sizing: border-box; min-height: 44px; padding: 0 14px; border-radius: 10px;
+    background: var(--surface); color: var(--text); font-weight: 600; font-size: .9rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,.3); cursor: pointer; display: inline-flex; align-items: center;
+  }
+  .map-btns button[aria-pressed="true"] { background: var(--gps); color: #fff; }
+  .map-btns button:disabled { opacity: .45; cursor: default; }
+  .map-btns button:focus-visible { outline: 3px solid var(--accent); }
+  .map-hint {
+    position: absolute; left: 10px; bottom: 10px; font-size: .8rem; pointer-events: none;
+    background: rgba(0,0,0,.5); color: #fff; padding: 4px 10px; border-radius: 999px; transition: opacity .6s;
+  }
+  #profile { display: block; width: 100%; height: 76px; border-top: 1px solid var(--line); }
+  .map-panel { padding: 14px 16px 16px; }
+  .status { margin: 0 0 12px; font-size: 1rem; }
+  .btn.wide { width: 100%; }
+  .btn.gps-on { background: transparent; color: var(--accent); }
+  .arrive { display: flex; flex-direction: column; gap: 10px; background: var(--accent-soft); border-radius: 12px; padding: 12px; margin-bottom: 12px; font-weight: 600; }
+  .plan { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .plan-row { display: flex; justify-content: space-between; align-items: center; }
+  .linkbtn { all: unset; color: var(--accent); font-weight: 700; padding: 10px 6px; cursor: pointer; }
+  .linkbtn:focus-visible { outline: 3px solid var(--accent); }
+  input[type=range] { width: 100%; height: 44px; accent-color: var(--accent); margin: 4px 0; }
+  .fine { font-size: .8rem; color: var(--muted); margin: 8px 0 0; }
 </style>
 </head>
 <body>
@@ -186,6 +227,36 @@
     </div>
   </div>
 
+  <h2>3D trip map</h2>
+  <section class="mapcard">
+    <div class="map-wrap">
+      <canvas id="map" role="img" aria-label="3D view of the route from Kellyville up Bells Line of Road to Mount Wilson"></canvas>
+      <div class="map-btns">
+        <button type="button" id="mapOverview">Overview</button>
+        <button type="button" id="mapFollow" aria-pressed="false" disabled>Follow me</button>
+      </div>
+      <div class="map-hint" id="mapHint">Drag to rotate · pinch to zoom · tap a pin</div>
+    </div>
+    <canvas id="profile" aria-hidden="true"></canvas>
+    <div class="map-panel">
+      <div class="arrive" id="arrive" hidden>
+        <span id="arriveText"></span>
+        <button type="button" class="btn primary" id="arriveBtn">Tick it off</button>
+      </div>
+      <p class="status" id="gpsStatus">GPS is off.</p>
+      <button type="button" class="btn primary wide" id="gpsBtn">📡 Start GPS</button>
+      <div class="plan">
+        <div class="plan-row">
+          <label for="planTime">Plan at <strong id="planClock">8:30am</strong></label>
+          <button type="button" class="linkbtn" id="planNow" hidden>Back to now</button>
+        </div>
+        <input type="range" id="planTime" min="480" max="900" step="5" value="510">
+        <p class="status" id="planStatus"></p>
+      </div>
+      <p class="fine">Offline sketch map: the road, pins and terrain are approximate, with heights exaggerated ×4. The blue dot is your real GPS position. GPS works without phone reception but uses more battery, and keeps the screen awake while on.</p>
+    </div>
+  </section>
+
   <h2>Itinerary</h2>
   <ol class="timeline" id="timeline"></ol>
 
@@ -199,6 +270,42 @@
 <script>
 (function () {
   var KEY = "mtwilson-trip-2026-10-18";
+
+  // Road from Kellyville to Mt Wilson: [lat, lon, elevation m, stop tag].
+  // Hand-placed approximations (no map data offline), good to a few hundred metres.
+  var ROAD = [
+    [-33.7030, 150.9530, 60, "home"],   // Kellyville
+    [-33.6900, 150.9300, 65],
+    [-33.6820, 150.9150, 70],           // Rouse Hill
+    [-33.6650, 150.8950, 50],
+    [-33.6500, 150.8800, 40],           // Box Hill
+    [-33.6350, 150.8500, 20],
+    [-33.6250, 150.8300, 15],           // Mulgrave
+    [-33.6110, 150.8150, 20],           // Windsor
+    [-33.6050, 150.7850, 20],
+    [-33.6000, 150.7520, 20],           // Richmond
+    [-33.5900, 150.7350, 20],
+    [-33.5800, 150.7200, 25],           // North Richmond
+    [-33.5650, 150.7050, 80],
+    [-33.5530, 150.6930, 120],          // Kurmond
+    [-33.5480, 150.6680, 200],          // Kurrajong
+    [-33.5420, 150.6480, 330],
+    [-33.5367, 150.6333, 450, "bellbird"],
+    [-33.5270, 150.6200, 520],          // Kurrajong Heights
+    [-33.5150, 150.5950, 550],
+    [-33.5050, 150.5700, 580],
+    [-33.5020, 150.5530, 600, "hillbilly"],
+    [-33.4980, 150.5250, 620],          // Bilpin
+    [-33.5100, 150.4900, 700],
+    [-33.5280, 150.4550, 780],          // Berambing
+    [-33.5430, 150.4200, 950],          // Mt Tomah
+    [-33.5420, 150.3950, 990],
+    [-33.5370, 150.3830, 1000],         // Mt Wilson Rd turn-off
+    [-33.5250, 150.3780, 980],
+    [-33.5120, 150.3760, 990],
+    [-33.5050, 150.3795, 1000, "fire"]  // Mt Wilson Fire Station
+  ];
+  var NOOROO = [-33.4995, 150.3835, 1005];
 
   var stops = [
     { id: "leave", time: "8:30am", title: "Leave Kellyville",
@@ -334,7 +441,560 @@
       document.getElementById("p-" + p.id).checked = on;
     });
     document.getElementById("packCount").textContent = "· " + packed + "/" + pack.length + " packed";
+    if (map) map.update();
   }
+
+  // ---------- 3D map ----------
+  var map = (function () {
+    var canvas = document.getElementById("map"), ctx = canvas.getContext("2d");
+    var layer = document.createElement("canvas"), lctx = layer.getContext("2d");
+    var prof = document.getElementById("profile"), pctx = prof.getContext("2d");
+    var gpsBtn = document.getElementById("gpsBtn"), followBtn = document.getElementById("mapFollow");
+    var gpsStatusEl = document.getElementById("gpsStatus"), arriveEl = document.getElementById("arrive");
+    var slider = document.getElementById("planTime"), planNowBtn = document.getElementById("planNow");
+    var hintEl = document.getElementById("mapHint");
+    var FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    var DEG = Math.PI / 180, EX = 4, NEAR = 300;
+
+    // Flat local projection in metres around the middle of the route
+    var LAT0 = -33.6, LON0 = 150.66;
+    var KX = 111320 * Math.cos(LAT0 * DEG), KY = 110574;
+    function toXY(lat, lon) { return { x: (lon - LON0) * KX, y: (lat - LAT0) * KY }; }
+    function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+    var road = [], tagIdx = {}, along = 0;
+    ROAD.forEach(function (r, i) {
+      var p = toXY(r[0], r[1]);
+      if (i) along += Math.hypot(p.x - road[i - 1].x, p.y - road[i - 1].y);
+      p.e = r[2]; p.s = along;
+      road.push(p);
+      if (r[3]) tagIdx[r[3]] = i;
+    });
+    var ROAD_LEN = along;
+    var noo = toXY(NOOROO[0], NOOROO[1]); noo.e = NOOROO[2]; noo.s = ROAD_LEN;
+    var stopPos = {
+      leave: road[0], home: road[0], fire: road[tagIdx.fire], nooroo: noo,
+      hillbilly: road[tagIdx.hillbilly], bellbird: road[tagIdx.bellbird]
+    };
+
+    function nearest(x, y) {
+      var best = { d2: Infinity, e: 0, s: 0 };
+      for (var i = 0; i < road.length - 1; i++) {
+        var a = road[i], b = road[i + 1], dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy;
+        var t = clamp(L ? ((x - a.x) * dx + (y - a.y) * dy) / L : 0, 0, 1);
+        var px = a.x + t * dx - x, py = a.y + t * dy - y, d2 = px * px + py * py;
+        if (d2 < best.d2) { best.d2 = d2; best.e = a.e + t * (b.e - a.e); best.s = a.s + t * (b.s - a.s); }
+      }
+      return best;
+    }
+
+    // Stylised terrain: Bells Line of Road runs along a ridge, with gorges falling away either side
+    function noise(x, y) {
+      return 0.5 + 0.25 * Math.sin(x / 1700 + 2 * Math.sin(y / 2300)) + 0.25 * Math.sin(y / 1300 + 2 * Math.cos(x / 2900));
+    }
+    function height(x, y) {
+      var n = nearest(x, y), e = n.e;
+      var drop = Math.min(Math.sqrt(n.d2), 3500) / 3500;
+      var m = clamp((e - 100) / 400, 0, 1); // 0 on the plain, 1 in the mountains
+      var gorge = m * e * 0.75 * (0.4 + 0.6 * noise(x, y));
+      var bumps = (1 - m) * 25 * (noise(x * 2.3, y * 2.3) - 0.5) + m * 160 * (noise(x * 1.6 + 900, y * 1.6) - 0.5);
+      return Math.max(5, e + drop * (bumps - gorge));
+    }
+
+    var RAMP = [[0, [176, 196, 128]], [150, [128, 166, 96]], [450, [82, 132, 86]], [800, [60, 108, 92]], [1100, [140, 132, 104]]];
+    function ramp(h) {
+      for (var k = 1; k < RAMP.length; k++) if (h <= RAMP[k][0]) {
+        var a = RAMP[k - 1], b = RAMP[k], t = (h - a[0]) / (b[0] - a[0]);
+        return [0, 1, 2].map(function (c) { return a[1][c] + (b[1][c] - a[1][c]) * t; });
+      }
+      return RAMP[RAMP.length - 1][1].slice();
+    }
+
+    var W0 = toXY(0, 150.33).x, E0 = toXY(0, 151.0).x, S0 = toXY(-33.735, 0).y, N0 = toXY(-33.465, 0).y;
+    var NX = 64, NY = 30, verts = [], quads = [], i, j;
+    for (j = 0; j <= NY; j++) for (i = 0; i <= NX; i++) {
+      var gx = W0 + (E0 - W0) * i / NX, gy = S0 + (N0 - S0) * j / NY, gh = height(gx, gy);
+      verts.push({ x: gx, y: gy, h: gh, z: gh * EX });
+    }
+    var LIGHT = (function () { var l = [-0.5, 0.6, 0.65], n = Math.hypot(l[0], l[1], l[2]); return l.map(function (c) { return c / n; }); })();
+    for (j = 0; j < NY; j++) for (i = 0; i < NX; i++) {
+      var ia = j * (NX + 1) + i, ib = ia + 1, ic = ib + NX + 1, id = ia + NX + 1;
+      var a = verts[ia], b = verts[ib], c = verts[ic], d = verts[id];
+      var ux = c.x - a.x, uy = c.y - a.y, uz = c.z - a.z, vx = d.x - b.x, vy = d.y - b.y, vz = d.z - b.z;
+      var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = Math.hypot(nx, ny, nz) * (nz < 0 ? -1 : 1);
+      var shade = 0.55 + 0.5 * Math.max(0, (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
+      quads.push({ v: [ia, ib, ic, id], rgb: ramp((a.h + b.h + c.h + d.h) / 4).map(function (v) { return v * shade; }) });
+    }
+
+    var LIFT = 25 * EX;
+    function densify(pts) {
+      var out = [];
+      for (var k = 0; k < pts.length - 1; k++) {
+        var p = pts[k], q = pts[k + 1], n = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / 450));
+        for (var s = 0; s < n; s++) {
+          var t = s / n;
+          out.push({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, z: (p.e + (q.e - p.e) * t) * EX + LIFT });
+        }
+      }
+      var last = pts[pts.length - 1];
+      out.push({ x: last.x, y: last.y, z: last.e * EX + LIFT });
+      return out;
+    }
+    var roadDense = densify(road), walkDense = densify([stopPos.fire, noo]);
+
+    var TOWNS = [[7, "Windsor"], [9, "Richmond"], [14, "Kurrajong"], [21, "Bilpin"], [24, "Mt Tomah"]];
+    var PINS = [
+      { ids: ["leave", "home"], num: "1·6", label: "Kellyville", stem: 34 },
+      { ids: ["fire"], num: "2", label: "Fire Station · park", stem: 30 },
+      { ids: ["nooroo"], num: "3", label: "Nooroo Garden", stem: 64 },
+      { ids: ["hillbilly"], num: "4", label: "Hillbilly Cider", stem: 40 },
+      { ids: ["bellbird"], num: "5", label: "Bellbird Lookout", stem: 40 }
+    ];
+
+    // ---- The day's plan, as positions over time (minutes after midnight) ----
+    function slice(x, y) {
+      var out = [], k;
+      if (x <= y) for (k = x; k <= y; k++) out.push(road[k]); else for (k = x; k >= y; k--) out.push(road[k]);
+      return out;
+    }
+    var FI = tagIdx.fire, HB = tagIdx.hillbilly, BB = tagIdx.bellbird;
+    var PLAN = [
+      { t0: 0, t1: 510, at: road[0], icon: "🏠", text: "At home in Kellyville, getting ready" },
+      { t0: 510, t1: 600, path: slice(0, FI), icon: "🚗", text: "Driving up Bells Line of Road to Mt Wilson" },
+      { t0: 600, t1: 615, path: [stopPos.fire, noo], icon: "🐾", text: "Walking along The Avenue to Nooroo" },
+      { t0: 615, t1: 660, at: noo, icon: "🌸", text: "Exploring Nooroo Garden" },
+      { t0: 660, t1: 670, path: [noo, stopPos.fire], icon: "🐾", text: "Walking back to the car" },
+      { t0: 670, t1: 705, path: slice(FI, HB), icon: "🚗", text: "Driving to Hillbilly Cider Shed" },
+      { t0: 705, t1: 810, at: road[HB], icon: "🍕", text: "Lunch on the lawn at Hillbilly" },
+      { t0: 810, t1: 830, path: slice(HB, BB), icon: "🚗", text: "Driving down to Bellbird Lookout" },
+      { t0: 830, t1: 840, at: road[BB], icon: "👀", text: "Bellbird Lookout (optional)" },
+      { t0: 840, t1: 885, path: slice(BB, 0), icon: "🚗", text: "Driving home" },
+      { t0: 885, t1: 1441, at: road[0], icon: "🏠", text: "Home in Kellyville" }
+    ];
+    function onPath(path, f) {
+      var lens = [], total = 0, k;
+      for (k = 0; k < path.length - 1; k++) { lens.push(Math.hypot(path[k + 1].x - path[k].x, path[k + 1].y - path[k].y)); total += lens[k]; }
+      var left = f * total;
+      for (k = 0; k < lens.length; k++) {
+        if (left <= lens[k] || k === lens.length - 1) {
+          var t = lens[k] ? clamp(left / lens[k], 0, 1) : 0, p = path[k], q = path[k + 1];
+          return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, e: p.e + (q.e - p.e) * t, s: p.s + (q.s - p.s) * t };
+        }
+        left -= lens[k];
+      }
+      return path[0];
+    }
+    function planAt(min) {
+      var seg = PLAN[PLAN.length - 1];
+      for (var k = 0; k < PLAN.length; k++) if (min >= PLAN[k].t0 && min < PLAN[k].t1) { seg = PLAN[k]; break; }
+      var p = seg.at || onPath(seg.path, (min - seg.t0) / (seg.t1 - seg.t0));
+      return { x: p.x, y: p.y, z: p.e * EX + LIFT, e: p.e, s: p.s, icon: seg.icon, text: seg.text };
+    }
+    function clock(min) {
+      min = Math.floor(min);
+      var h = Math.floor(min / 60), m = min % 60;
+      return (((h + 11) % 12) + 1) + ":" + (m < 10 ? "0" : "") + m + (h >= 12 ? "pm" : "am");
+    }
+    function nextStop() {
+      for (var k = 0; k < stops.length; k++) if (!state.stops[stops[k].id]) return stops[k];
+      return null;
+    }
+
+    // ---- Theme ----
+    var theme;
+    function hexRgb(h) {
+      var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(h);
+      return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [238, 242, 239];
+    }
+    function readTheme() {
+      var cs = getComputedStyle(document.documentElement);
+      function v(n) { return cs.getPropertyValue(n).trim(); }
+      theme = {
+        dark: window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches,
+        skyTop: v("--sky-top"), skyBottom: v("--sky-bottom"), fog: hexRgb(v("--sky-bottom")),
+        road: v("--road"), casing: v("--road-casing"), gps: v("--gps"), text: v("--text"),
+        surface: v("--surface"), muted: v("--muted"), accent: v("--accent"), line: v("--line")
+      };
+    }
+
+    // ---- Camera ----
+    var OVERVIEW = { tx: (W0 + E0) / 2, ty: (S0 + N0) / 2, tz: 1200, yaw: 315, pitch: 42, dist: 70000 };
+    function copy(o) { var r = {}; for (var k in o) r[k] = o[k]; return r; }
+    var cam = copy(OVERVIEW), goal = copy(OVERVIEW);
+    var P = { W: 0, H: 0, F: 1, cy: 1, sy: 0, cp: 1, sp: 0 }, dpr = 1;
+    function setup() {
+      P.cy = Math.cos(cam.yaw * DEG); P.sy = Math.sin(cam.yaw * DEG);
+      P.cp = Math.cos(cam.pitch * DEG); P.sp = Math.sin(cam.pitch * DEG);
+      P.F = Math.max(P.W, P.H * 0.8) * 1.15;
+    }
+    function project(x, y, z) {
+      var px = x - cam.tx, py = y - cam.ty, pz = z - cam.tz;
+      var xr = px * P.cy - py * P.sy, yr = px * P.sy + py * P.cy;
+      var d = yr * P.cp - pz * P.sp + cam.dist, up = yr * P.sp + pz * P.cp;
+      return { x: P.W / 2 + xr * P.F / d, y: P.H * 0.5 - up * P.F / d, d: d };
+    }
+    function stepCamera() {
+      var moved = false;
+      ["tx", "ty", "tz", "pitch", "dist"].forEach(function (k) {
+        var diff = goal[k] - cam[k], eps = k === "pitch" ? 0.05 : k === "dist" ? cam.dist * 0.001 : 2;
+        if (Math.abs(diff) > eps) { cam[k] += diff * 0.18; moved = true; } else cam[k] = goal[k];
+      });
+      var dy = ((goal.yaw - cam.yaw + 540) % 360) - 180;
+      if (Math.abs(dy) > 0.05) { cam.yaw = (cam.yaw + dy * 0.18 + 360) % 360; moved = true; } else cam.yaw = goal.yaw;
+      return moved;
+    }
+    function focusOn(x, y, z, dist) {
+      goal.tx = x; goal.ty = y; goal.tz = z; goal.dist = dist; goal.pitch = Math.max(goal.pitch, 38);
+    }
+
+    // ---- Drawing ----
+    function strokePath(g, pts, width, color, dash) {
+      g.setLineDash(dash || []); g.lineWidth = width; g.strokeStyle = color;
+      g.lineJoin = "round"; g.lineCap = "round";
+      g.beginPath();
+      var pen = false;
+      pts.forEach(function (p) {
+        var s = project(p.x, p.y, p.z);
+        if (s.d < NEAR) { pen = false; return; }
+        if (pen) g.lineTo(s.x, s.y); else { g.moveTo(s.x, s.y); pen = true; }
+      });
+      g.stroke(); g.setLineDash([]);
+    }
+    function renderLayer() {
+      setup();
+      var g = lctx;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var sky = g.createLinearGradient(0, 0, 0, P.H);
+      sky.addColorStop(0, theme.skyTop); sky.addColorStop(1, theme.skyBottom);
+      g.fillStyle = sky; g.fillRect(0, 0, P.W, P.H);
+
+      var pv = verts.map(function (v) { return project(v.x, v.y, v.z); });
+      var items = [];
+      quads.forEach(function (q) {
+        var a = pv[q.v[0]], b = pv[q.v[1]], c = pv[q.v[2]], d = pv[q.v[3]];
+        if (a.d < NEAR || b.d < NEAR || c.d < NEAR || d.d < NEAR) return;
+        items.push({ d: (a.d + b.d + c.d + d.d) / 4, q: q, p: [a, b, c, d] });
+      });
+      items.sort(function (m, n) { return n.d - m.d; });
+      var dim = theme.dark ? 0.62 : 1, fog = theme.fog;
+      items.forEach(function (it) {
+        var f = clamp((it.d - 15000) / 110000, 0, 0.55), rgb = it.q.rgb;
+        var col = "rgb(" + [0, 1, 2].map(function (k) { return Math.round(rgb[k] * dim + (fog[k] - rgb[k] * dim) * f); }).join(",") + ")";
+        g.fillStyle = col; g.strokeStyle = col; g.lineWidth = 0.7;
+        g.beginPath();
+        g.moveTo(it.p[0].x, it.p[0].y); g.lineTo(it.p[1].x, it.p[1].y);
+        g.lineTo(it.p[2].x, it.p[2].y); g.lineTo(it.p[3].x, it.p[3].y);
+        g.closePath(); g.fill(); g.stroke();
+      });
+
+      var w = clamp(P.F * 150 / cam.dist, 3, 8);
+      strokePath(g, roadDense, w + 3, theme.casing);
+      strokePath(g, roadDense, w, theme.road);
+      strokePath(g, walkDense, w * 0.8, theme.road, [w * 0.6, w * 1.4]);
+    }
+
+    var hits = [];
+    function label(text, x, y, size, weight) {
+      ctx.font = weight + " " + size + "px " + FONT;
+      ctx.textBaseline = "middle"; ctx.textAlign = "left";
+      var tw = ctx.measureText(text).width;
+      ctx.fillStyle = theme.surface; ctx.globalAlpha = 0.92;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y - size * 0.85, tw + 12, size * 1.7, size * 0.85); else ctx.rect(x, y - size * 0.85, tw + 12, size * 1.7);
+      ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = theme.text; ctx.fillText(text, x + 6, y + 0.5);
+    }
+    function drawOverlay(ts) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(layer, 0, 0);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      setup();
+
+      // Town names
+      TOWNS.forEach(function (t) {
+        var p = road[t[0]], s = project(p.x, p.y, p.e * EX + LIFT);
+        if (s.d < NEAR || cam.dist > 90000) return;
+        ctx.font = "600 11px " + FONT; ctx.textAlign = "center"; ctx.textBaseline = "top";
+        ctx.lineWidth = 3; ctx.strokeStyle = theme.surface; ctx.strokeText(t[1], s.x, s.y + 7);
+        ctx.fillStyle = theme.muted; ctx.fillText(t[1], s.x, s.y + 7);
+      });
+
+      // Stop pins, far ones first
+      var next = nextStop();
+      hits = [];
+      PINS.map(function (pin) {
+        var p = stopPos[pin.ids[0]];
+        return { pin: pin, p: p, s: project(p.x, p.y, p.e * EX + LIFT) };
+      }).filter(function (o) { return o.s.d > NEAR; })
+        .sort(function (m, n) { return n.s.d - m.s.d; })
+        .forEach(function (o) {
+          var pin = o.pin, s = o.s;
+          var done = pin.ids.every(function (id) { return state.stops[id]; });
+          var isNext = !!next && pin.ids.indexOf(next.id) >= 0;
+          var col = done ? "#8a8f93" : isNext ? "#d4621b" : "#2f7a52", r = isNext ? 15 : 13, top = s.y - pin.stem;
+          ctx.fillStyle = "rgba(0,0,0,.3)";
+          ctx.beginPath(); ctx.ellipse(s.x, s.y, 6, 2.5, 0, 0, 7); ctx.fill();
+          ctx.strokeStyle = col; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x, top); ctx.stroke();
+          ctx.fillStyle = col; ctx.strokeStyle = "#fff";
+          ctx.beginPath(); ctx.arc(s.x, top, r, 0, 7); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = "#fff"; ctx.font = "700 " + (pin.num.length > 1 && !done ? 10 : 13) + "px " + FONT;
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(done ? "✓" : pin.num, s.x, top + 0.5);
+          label(pin.label, s.x + r + 5, top, 12, isNext ? "700" : "600");
+          hits.push({ x: s.x, y: top, p: o.p });
+        });
+
+      // Where the plan says we are
+      var pl = planAt(planMin), ps = project(pl.x, pl.y, pl.z);
+      if (ps.d > NEAR) {
+        ctx.fillStyle = theme.surface; ctx.strokeStyle = theme.road; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(ps.x, ps.y - 4, 15, 0, 7); ctx.fill(); ctx.stroke();
+        ctx.font = "16px " + FONT; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(pl.icon, ps.x, ps.y - 3);
+      }
+
+      // Live GPS dot
+      if (fix) {
+        var gs = project(fix.x, fix.y, fix.z);
+        if (gs.d > NEAR) {
+          var ph = (ts % 1600) / 1600;
+          ctx.fillStyle = theme.gps;
+          ctx.globalAlpha = 0.4 * (1 - ph);
+          ctx.beginPath(); ctx.arc(gs.x, gs.y, 9 + 24 * ph, 0, 7); ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(gs.x, gs.y, 10, 0, 7); ctx.fill();
+          ctx.fillStyle = theme.gps; ctx.beginPath(); ctx.arc(gs.x, gs.y, 7, 0, 7); ctx.fill();
+        }
+      }
+    }
+
+    function drawProfile() {
+      var w = prof.width / dpr, h = prof.height / dpr;
+      if (!w || !theme) return;
+      var g = pctx;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, w, h);
+      function X(s) { return 14 + (w - 28) * s / ROAD_LEN; }
+      function Y(e) { return 20 + (h - 38) * (1 - e / 1100); }
+      g.beginPath(); g.moveTo(X(0), h - 18);
+      road.forEach(function (p) { g.lineTo(X(p.s), Y(p.e)); });
+      g.lineTo(X(ROAD_LEN), h - 18); g.closePath();
+      g.fillStyle = theme.accent; g.globalAlpha = 0.2; g.fill(); g.globalAlpha = 1;
+      g.beginPath();
+      road.forEach(function (p, k) { if (k) g.lineTo(X(p.s), Y(p.e)); else g.moveTo(X(p.s), Y(p.e)); });
+      g.strokeStyle = theme.accent; g.lineWidth = 2; g.stroke();
+
+      g.font = "600 11px " + FONT; g.fillStyle = theme.muted; g.textBaseline = "bottom";
+      g.textAlign = "left"; g.fillText("Kellyville ~60 m", 4, h - 2);
+      g.textAlign = "right"; g.fillText("Mt Wilson ~1,000 m", w - 4, h - 2);
+      g.textBaseline = "top"; g.textAlign = "left"; g.fillText("Elevation along the drive", 4, 3);
+
+      [["bellbird", "5"], ["hillbilly", "4"]].forEach(function (t) {
+        var p = stopPos[t[0]];
+        g.fillStyle = state.stops[t[0]] ? "#8a8f93" : "#2f7a52";
+        g.beginPath(); g.arc(X(p.s), Y(p.e), 6, 0, 7); g.fill();
+        g.fillStyle = "#fff"; g.font = "700 9px " + FONT; g.textBaseline = "middle"; g.textAlign = "center";
+        g.fillText(t[1], X(p.s), Y(p.e) + 0.5);
+      });
+
+      var pl = planAt(planMin);
+      g.font = "15px " + FONT; g.textAlign = "center"; g.textBaseline = "bottom";
+      g.fillText(pl.icon, clamp(X(pl.s), 10, w - 10), Y(pl.e) - 5);
+
+      if (fix) {
+        var fx = X(fix.near.s);
+        g.strokeStyle = theme.gps; g.lineWidth = 2; g.setLineDash([3, 3]);
+        g.beginPath(); g.moveTo(fx, 4); g.lineTo(fx, h - 18); g.stroke(); g.setLineDash([]);
+        g.fillStyle = theme.gps; g.beginPath(); g.arc(fx, Y(fix.near.e), 5, 0, 7); g.fill();
+      }
+    }
+
+    var layerDirty = true, overlayDirty = true, lastPulse = 0;
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var r = canvas.getBoundingClientRect();
+      P.W = r.width; P.H = r.height;
+      canvas.width = layer.width = Math.round(r.width * dpr);
+      canvas.height = layer.height = Math.round(r.height * dpr);
+      var pr = prof.getBoundingClientRect();
+      prof.width = Math.round(pr.width * dpr); prof.height = Math.round(pr.height * dpr);
+      layerDirty = true;
+      drawProfile();
+    }
+    function frame(ts) {
+      if (stepCamera()) layerDirty = true;
+      if (layerDirty) { renderLayer(); layerDirty = false; overlayDirty = true; }
+      if (overlayDirty || (fix && ts - lastPulse > 40)) { drawOverlay(ts); overlayDirty = false; lastPulse = ts; }
+      requestAnimationFrame(frame);
+    }
+
+    // ---- Touch: drag to rotate/tilt, pinch or wheel to zoom, tap a pin to fly to it ----
+    var pointers = {}, pinch0 = null, tapStart = null;
+    function pdist() {
+      var ps = Object.keys(pointers).map(function (k) { return pointers[k]; });
+      return Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y);
+    }
+    function hideHint() { hintEl.style.opacity = "0"; }
+    setTimeout(hideHint, 7000);
+    canvas.addEventListener("pointerdown", function (e) {
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+      pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+      var n = Object.keys(pointers).length;
+      if (n === 1) tapStart = { x: e.clientX, y: e.clientY, t: Date.now() };
+      else { tapStart = null; if (n === 2) pinch0 = { d: pdist(), dist: goal.dist }; }
+      hideHint();
+    });
+    canvas.addEventListener("pointermove", function (e) {
+      var p = pointers[e.pointerId];
+      if (!p) return;
+      var dx = e.clientX - p.x, dy = e.clientY - p.y, n = Object.keys(pointers).length;
+      p.x = e.clientX; p.y = e.clientY;
+      if (n === 1) {
+        goal.yaw = cam.yaw = (cam.yaw - dx * 0.35 + 360) % 360;
+        goal.pitch = cam.pitch = clamp(cam.pitch + dy * 0.25, 12, 85);
+        layerDirty = true;
+      } else if (n === 2 && pinch0) {
+        goal.dist = cam.dist = clamp(pinch0.dist * pinch0.d / Math.max(20, pdist()), 2500, 120000);
+        layerDirty = true;
+      }
+    });
+    function pointerUp(e) {
+      if (tapStart && Object.keys(pointers).length === 1 &&
+          Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 10 && Date.now() - tapStart.t < 450) {
+        var r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, best = null, bd = 30;
+        hits.forEach(function (h) { var d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h; } });
+        if (best) { setFollow(false); focusOn(best.p.x, best.p.y, best.p.e * EX, 9000); }
+      }
+      delete pointers[e.pointerId];
+      if (Object.keys(pointers).length < 2) pinch0 = null;
+      tapStart = null;
+    }
+    canvas.addEventListener("pointerup", pointerUp);
+    canvas.addEventListener("pointercancel", pointerUp);
+    canvas.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      goal.dist = clamp(goal.dist * Math.exp(e.deltaY * 0.0015), 2500, 120000);
+      hideHint();
+    }, { passive: false });
+
+    document.getElementById("mapOverview").addEventListener("click", function () {
+      setFollow(false); goal = copy(OVERVIEW);
+    });
+    function setFollow(on) {
+      follow = on;
+      followBtn.setAttribute("aria-pressed", on ? "true" : "false");
+      if (on && fix) focusOn(fix.x, fix.y, fix.z, 11000);
+    }
+    followBtn.addEventListener("click", function () { setFollow(!follow); });
+
+    // ---- Plan-time slider ----
+    var planManual = false, planMin = 510;
+    function nowMin() {
+      var d = new Date();
+      return d.getFullYear() === 2026 && d.getMonth() === 9 && d.getDate() === 18 ? d.getHours() * 60 + d.getMinutes() : null;
+    }
+    function syncPlan() {
+      var n = nowMin();
+      if (!planManual && n !== null) planMin = clamp(n, 480, 900);
+      slider.value = planMin;
+      planNowBtn.hidden = !(planManual && n !== null);
+      document.getElementById("planClock").textContent = clock(planMin);
+      var pl = planAt(planMin);
+      document.getElementById("planStatus").textContent = pl.icon + " " + pl.text +
+        (n !== null && !planManual ? " — where the plan says you'd be now" : "");
+      overlayDirty = true;
+      drawProfile();
+    }
+    slider.addEventListener("input", function () { planManual = true; planMin = +slider.value; syncPlan(); });
+    planNowBtn.addEventListener("click", function () { planManual = false; syncPlan(); });
+    setInterval(syncPlan, 30000);
+
+    // ---- GPS ----
+    var GPS_KEY = KEY + "-gps", watchId = null, fix = null, follow = false, wakeLock = null, arriveId = null;
+    function setGpsPref(on) { try { localStorage.setItem(GPS_KEY, on ? "1" : "0"); } catch (e) {} }
+    function keepAwake() {
+      try {
+        if (navigator.wakeLock && watchId !== null && document.visibilityState === "visible")
+          navigator.wakeLock.request("screen").then(function (l) { wakeLock = l; }).catch(function () {});
+      } catch (e) {}
+    }
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") keepAwake(); });
+
+    function startGps() {
+      if (!("geolocation" in navigator)) { gpsStatusEl.textContent = "This browser can't access GPS."; return; }
+      if (window.isSecureContext === false) {
+        gpsStatusEl.textContent = "GPS only works when this page is opened from an https:// link (e.g. GitHub Pages).";
+        return;
+      }
+      gpsStatusEl.textContent = "Finding you… allow location if your phone asks.";
+      watchId = navigator.geolocation.watchPosition(onFix, onErr, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
+      gpsBtn.textContent = "Stop GPS"; gpsBtn.classList.add("gps-on");
+      setGpsPref(true);
+      keepAwake();
+    }
+    function stopGps(msg) {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      watchId = null; fix = null;
+      setFollow(false); followBtn.disabled = true;
+      gpsBtn.textContent = "📡 Start GPS"; gpsBtn.classList.remove("gps-on");
+      gpsStatusEl.textContent = msg || "GPS is off.";
+      arriveEl.hidden = true;
+      setGpsPref(false);
+      if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
+      overlayDirty = true; drawProfile();
+    }
+    function onErr(e) {
+      if (e.code === 1) stopGps("Location permission is blocked. Allow location for this page in your browser settings, then tap Start GPS again.");
+      else if (!fix) gpsStatusEl.textContent = "Still looking for a GPS signal… open sky helps.";
+    }
+    function onFix(pos) {
+      var c = pos.coords, p = toXY(c.latitude, c.longitude);
+      fix = { x: p.x, y: p.y, z: height(p.x, p.y) * EX + LIFT, acc: c.accuracy, alt: c.altitude, near: nearest(p.x, p.y) };
+      followBtn.disabled = false;
+      if (follow) focusOn(fix.x, fix.y, fix.z, 11000);
+      updateGps();
+      overlayDirty = true; drawProfile();
+    }
+    function fmtDist(d) { return d < 1000 ? Math.round(d / 10) * 10 + " m" : (d / 1000).toFixed(d < 10000 ? 1 : 0) + " km"; }
+    function updateGps() {
+      if (!fix) return;
+      var next = nextStop(), txt, prompt = null;
+      if (!next) txt = "📍 All stops done. Nice day out!";
+      else {
+        var sp = stopPos[next.id], d = Math.hypot(fix.x - sp.x, fix.y - sp.y);
+        txt = "📍 " + fmtDist(d) + " in a straight line to " + next.title;
+        if (next.id === "leave") { if (d > 4000) prompt = "Looks like you're on the road. Tick off “Leave Kellyville”?"; }
+        else if (d < (next.id === "home" ? 3000 : 500)) prompt = "You're at " + next.title + ". Tick it off?";
+      }
+      if (fix.alt != null) txt += " · altitude " + Math.round(fix.alt) + " m";
+      txt += " · GPS ±" + Math.round(fix.acc) + " m";
+      gpsStatusEl.textContent = txt;
+      arriveId = prompt ? next.id : null;
+      arriveEl.hidden = !prompt;
+      if (prompt) document.getElementById("arriveText").textContent = prompt;
+    }
+    document.getElementById("arriveBtn").addEventListener("click", function () {
+      if (!arriveId) return;
+      state.stops[arriveId] = true;
+      save(); render();
+    });
+    gpsBtn.addEventListener("click", function () { if (watchId === null) startGps(); else stopGps(); });
+
+    // ---- Start ----
+    readTheme();
+    if (window.matchMedia) {
+      var mq = matchMedia("(prefers-color-scheme: dark)"), onTheme = function () { readTheme(); layerDirty = true; drawProfile(); };
+      if (mq.addEventListener) mq.addEventListener("change", onTheme); else if (mq.addListener) mq.addListener(onTheme);
+    }
+    resize();
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas); else window.addEventListener("resize", resize);
+    syncPlan();
+    try { if (localStorage.getItem(GPS_KEY) === "1") startGps(); } catch (e) {}
+    requestAnimationFrame(frame);
+
+    return { update: function () { overlayDirty = true; updateGps(); drawProfile(); } };
+  })();
 
   document.getElementById("reset").addEventListener("click", function () {
     if (!confirm("Clear all stop and pack-list ticks?")) return;
