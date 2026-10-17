@@ -219,12 +219,49 @@
   .fine { font-size: .85rem; }
 
   body.guiding .top, body.guiding .sheet { display: none; }
+
+  /* Street map (MapLibre) and its markers */
+  #street { position: absolute; inset: 0; }
+  .app.street-on #map { display: none; }
+  .app:not(.street-on) #street { visibility: hidden; }
+  .maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right { bottom: var(--sheet-h) !important; }
+  .maplibregl-ctrl-attrib { font-size: 10px; }
+  .mk { width: 0; height: 0; position: relative; cursor: pointer; }
+  .mk .c {
+    position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; border-radius: 50%;
+    background: #fff; border: 2.5px solid #80868b; color: var(--muted);
+    font: 700 11px/19px var(--ui); text-align: center; box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+  }
+  .mk.next .c { border-color: var(--red); color: var(--red); }
+  .mk.done .c { background: var(--green); border-color: #fff; color: #fff; }
+  .mk .tear { position: absolute; left: -16px; top: -42px; width: 32px; height: 42px; display: none; }
+  .mk .tearnum { display: none; position: absolute; left: -16px; width: 32px; top: -36px; text-align: center; color: #fff; font: 700 12px var(--ui); pointer-events: none; }
+  .mk.sel .tearnum { display: block; }
+  .mk.sel .c { display: none; }
+  .mk.sel .tear { display: block; }
+  .mk .lbl, .mk-poi .lbl {
+    position: absolute; left: 17px; top: -10px; white-space: nowrap; pointer-events: none; display: none;
+    font: 600 13px var(--ui); color: var(--text); text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 4px #fff;
+  }
+  .mk.sel .lbl { display: block; left: 19px; top: -36px; font-size: 14px; }
+  .mk.next .lbl { display: block; }
+  .mk-poi { width: 0; height: 0; position: relative; pointer-events: none; }
+  .mk-poi .c { position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2.5px solid #1e8e3e; }
+  .mk-poi .lbl { color: #1e8e3e; left: 12px; top: -9px; }
+  .mk-poi.focus .lbl { display: block; }
+  .mk-poi.focus .c { transform: scale(1.35); }
+  .mk-gps { width: 0; height: 0; position: relative; pointer-events: none; }
+  .mk-gps .halo { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; background: rgba(26, 115, 232, .2); animation: halo 2s ease-out infinite; }
+  .mk-gps .dot { position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; border-radius: 50%; background: #1a73e8; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
+  @keyframes halo { from { transform: scale(.5); opacity: 1; } to { transform: scale(1.4); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .mk-gps .halo { animation: none; } }
   .app.sheet-open .fabs { display: none; }
   @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
 <div class="app" id="app">
+  <div id="street" aria-label="Street map"></div>
   <canvas id="map" role="img" aria-label="3D map of the drive from Kellyville up Bells Line of Road to Mount Wilson, with stop pins"></canvas>
 
   <header class="top" id="top">
@@ -247,6 +284,7 @@
   </div>
 
   <div class="fabs">
+    <button type="button" class="fab" id="btnLayers" aria-label="Switch between street map and sketch map"></button>
     <button type="button" class="fab" id="btnCompass" aria-label="Show whole route"></button>
     <button type="button" class="fab" id="btnGps" aria-label="Show my location"></button>
   </div>
@@ -304,8 +342,11 @@
     <h3>Location and guide</h3>
     <p id="gpsHelp">Start guide uses your location to tell you what's coming up and reads it aloud. It works without phone reception and keeps the screen awake, so keep the phone on a charger.</p>
     <button type="button" class="wide-btn" id="gpsOff" hidden>Turn off location</button>
+    <h3>Offline map</h3>
+    <p id="offlineText">Save the street map along the route to this phone so it keeps working without reception. Do this on Wi-Fi before you leave.</p>
+    <button type="button" class="wide-btn" id="saveOffline">Save map for offline</button>
     <h3>About the map</h3>
-    <p class="fine">Drag to rotate, pinch to zoom, tap a pin to see a stop. The road, pins and terrain are drawn approximately, with heights exaggerated ×4. The blue dot is your real position.</p>
+    <p class="fine">Drag to pan, two fingers to tilt and rotate, tap a pin to see a stop. The layers button switches between the street map and a built-in sketch map, which also takes over if the street map can't load. Street map © OpenStreetMap contributors, OpenFreeMap and OpenMapTiles; routing by OSRM; hill shading from Mapzen terrain tiles on AWS. Your home address is looked up once with OpenStreetMap's Nominatim and saved on this phone.</p>
     <button type="button" class="wide-btn" id="reset">Reset all ticks</button>
   </section>
 
@@ -334,7 +375,7 @@
   // Road from Kellyville to Mt Wilson: [lat, lon, elevation m, stop tag].
   // Hand-placed approximations (no map data offline), good to a few hundred metres.
   var ROAD = [
-    [-33.7030, 150.9530, 60, "home"],   // Kellyville
+    [-33.7135, 150.9395, 60, "home"],   // Home, Free Settlers Dr, Kellyville (approximate until looked up)
     [-33.6900, 150.9300, 65],
     [-33.6820, 150.9150, 70],           // Rouse Hill
     [-33.6650, 150.8950, 50],
@@ -366,7 +407,7 @@
   ];
 
   var stops = [
-    { id: "leave", time: "8:30am", title: "Leave Kellyville", short: "Kellyville", kind: "Start", addr: "Kellyville NSW",
+    { id: "leave", time: "8:30am", title: "Leave home", short: "Home", kind: "14 Free Settlers Dr, Kellyville", addr: "14 Free Settlers Drive, Kellyville NSW 2155",
       leg: "Start of the day",
       notes: ["Drive via Richmond, Kurrajong and Bells Line of Road (~1h30).", "Leads, poo bags, water and bowls in the car."] },
     { id: "windy", time: "10:00–11:15", title: "Windyridge Garden", short: "Windyridge", kind: "Garden · Dogs on lead", addr: "25 Queens Ave, Mount Wilson NSW 2786",
@@ -385,14 +426,14 @@
     { id: "bellbird", time: "1:50pm", title: "Bellbird Lookout", short: "Bellbird Lookout", kind: "Lookout · Toilets · Optional", optional: true, addr: "1183 Bells Line of Rd, Kurrajong Heights NSW 2758",
       leg: "~20 min drive",
       notes: ["Only turn in when heading downhill (east).", "Toilets."] },
-    { id: "home", time: "~2:45pm", title: "Home to Kellyville", short: "Home", kind: "Home", addr: "Kellyville NSW",
+    { id: "home", time: "~2:45pm", title: "Home", short: "Home", kind: "14 Free Settlers Dr, Kellyville", addr: "14 Free Settlers Drive, Kellyville NSW 2155",
       leg: "~45 min drive",
       notes: ["Home by about 2:45pm."] }
   ];
 
   // Tour guide script, in the order of the day. "at" places each step on the road by index.
   var GUIDE = [
-    { id: "g-start", stop: "leave", at: { road: 0 }, dir: "out", icon: "pin", title: "Leave Kellyville", sub: "8:30am · about 1h30 to Mt Wilson",
+    { id: "g-start", stop: "leave", at: { road: 0 }, dir: "out", icon: "pin", title: "Leave home", sub: "8:30am · about 1h30 to Mt Wilson",
       text: "Good morning! It's about an hour and a half to Mount Wilson, through Windsor and Richmond and up Bells Line of Road. Leads, water, bowls and poo bags in the car?" },
     { id: "g-windsor", at: { road: 7 }, dir: "out", icon: "spark", title: "Windsor", sub: "A Macquarie town",
       text: "Windsor is one of the five Macquarie towns, founded by Governor Lachlan Macquarie in 1810. It's one of the oldest European towns in Australia." },
@@ -418,7 +459,7 @@
       text: "Lunch at Hillbilly Cider Shed. Grab a spot on the lawn with the dogs. There's wood-fired pizza, and non-alcoholic drinks for Ann." },
     { id: "g-bellbird", stop: "bellbird", at: { road: 16 }, dir: "back", icon: "pin", title: "Bellbird Lookout", sub: "Optional · Toilets",
       text: "Bellbird Lookout. Heading downhill, so you can turn in now. On a clear day the view stretches across the Sydney basin. There are toilets here too." },
-    { id: "g-home", stop: "home", at: { road: 0 }, dir: "back", icon: "pin", title: "Home to Kellyville", sub: "About 45 minutes",
+    { id: "g-home", stop: "home", at: { road: 0 }, dir: "back", icon: "pin", title: "Home", sub: "About 45 minutes",
       text: "About forty-five minutes home from here. Hope Ann and the dogs had a great day out!" }
   ];
 
@@ -459,6 +500,8 @@
     check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     pin: '<path d="M12 21s-6.5-6-6.5-11.5a6.5 6.5 0 0113 0C18.5 15 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.3"/>',
+    person: '<circle cx="12" cy="5" r="2.5"/><path d="M9 21v-6H7.5V10a2 2 0 012-2h5a2 2 0 012 2v5H15v6"/>',
+    layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
     spark: '<circle cx="12" cy="12" r="9"/><path d="M12 8v.5M12 11v5"/>',
     turn: '<path d="M7 21v-8a4 4 0 014-4h8M15 5l4 4-4 4"/>',
     compass: '<g id="compassNeedle"><path d="M12 3l3.5 9h-7z" fill="#d93025" stroke="none"/><path d="M12 21l-3.5-9h7z" fill="#9aa0a6" stroke="none"/></g>'
@@ -513,6 +556,7 @@
   $("chipToilets").innerHTML = icon("wc") + "Toilets";
   $("chipPlanB").innerHTML = icon("swap") + "Plan B";
   $("btnCompass").innerHTML = icon("compass");
+  $("btnLayers").innerHTML = icon("layers");
   $("btnGps").innerHTML = icon("locate");
   $("prevStop").innerHTML = icon("prev");
   $("nextStopBtn").innerHTML = icon("next");
@@ -596,6 +640,8 @@
     tour.addEventListener("click", function () { guide.start("preview", s.id); });
     acts.appendChild(tour);
     acts.appendChild(pill("a", "", "directions", "Directions", { href: mapsUrl(s.addr) }));
+    var sv = map.latLon(s.id);
+    acts.appendChild(pill("a", "", "person", "Street View", { href: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=" + sv.lat.toFixed(6) + "," + sv.lon.toFixed(6) }));
     if (s.phone) acts.appendChild(pill("a", "", "phone", "Call", { href: "tel:" + s.phone }));
     var d = pill("button", "done", "check", done ? "Done" : "Mark done", { "aria-pressed": done ? "true" : "false" });
     d.addEventListener("click", function () { state.stops[s.id] = !state.stops[s.id]; save(); render(); });
@@ -683,12 +729,40 @@
       road.push(p);
       if (r[3]) tagIdx[r[3]] = i;
     });
-    var ROAD_LEN = along;
+    function fromXY(x, y) { return { lat: y / KY + LAT0, lon: x / KX + LON0 }; }
+    function ll(p) { var q = fromXY(p.x, p.y); return [q.lon, q.lat]; }
     var stopPos = {
       leave: road[0], home: road[0], windy: road[tagIdx.windy],
       hillbilly: road[tagIdx.hillbilly], bellbird: road[tagIdx.bellbird]
     };
     GUIDE.forEach(function (g) { g.pos = road[g.at.road]; });
+
+    // The line the live guide measures along: the sketch road at first, the real driving route once fetched
+    var gline = [], gLen = 0;
+    function setGuideLine(pts) {
+      gline = []; gLen = 0;
+      pts.forEach(function (p, k) {
+        if (k) gLen += Math.hypot(p.x - pts[k - 1].x, p.y - pts[k - 1].y);
+        gline.push({ x: p.x, y: p.y, s: gLen });
+      });
+      placeSteps();
+    }
+    function nearestOn(line, x, y) {
+      var best = { d2: Infinity, s: 0 };
+      for (var i = 0; i < line.length - 1; i++) {
+        var a = line[i], b = line[i + 1], dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy;
+        var t = clamp(L ? ((x - a.x) * dx + (y - a.y) * dy) / L : 0, 0, 1);
+        var px = a.x + t * dx - x, py = a.y + t * dy - y, d2 = px * px + py * py;
+        if (d2 < best.d2) { best.d2 = d2; best.s = a.s + t * (b.s - a.s); }
+      }
+      return best;
+    }
+    function placeSteps() {
+      GUIDE.forEach(function (g) {
+        if (g.stop) g.pos = stopPos[g.stop];
+        g.s = nearestOn(gline, g.pos.x, g.pos.y).s;
+      });
+    }
 
     function nearest(x, y) {
       var best = { d2: Infinity, e: 0, s: 0 };
@@ -758,14 +832,14 @@
 
     var TOWNS = [[7, "Windsor"], [9, "Richmond"], [14, "Kurrajong"], [21, "Bilpin"], [24, "Mt Tomah"]];
     var PINS = [
-      { ids: ["leave", "home"], label: "Kellyville" },
+      { ids: ["leave", "home"], label: "Home" },
       { ids: ["windy"], label: "Windyridge Garden" },
       { ids: ["hillbilly"], label: "Hillbilly Cider" },
       { ids: ["bellbird"], label: "Bellbird Lookout" }
     ];
 
     // ---- Camera ----
-    var OVERVIEW = { tx: (W0 + E0) / 2, ty: (S0 + N0) / 2, tz: 1200, yaw: 315, pitch: 50, dist: 68000 };
+    var OVERVIEW = { tx: (W0 + E0) / 2, ty: (S0 + N0) / 2, tz: 1200, yaw: 315, pitch: 50, dist: 68000, overview: true };
     function copy(o) { var r = {}; for (var k in o) r[k] = o[k]; return r; }
     var cam = copy(OVERVIEW), goal = copy(OVERVIEW);
     var P = { W: 0, H: 0, F: 1, ox: 0, oy: 0, cy: 1, sy: 0, cp: 1, sp: 0 }, dpr = 1;
@@ -790,6 +864,7 @@
       return moved;
     }
     function focusOn(x, y, z, dist, pitch) {
+      goal.overview = false;
       goal.tx = x; goal.ty = y; goal.tz = z; goal.dist = dist; goal.pitch = pitch || Math.max(goal.pitch, 50);
     }
 
@@ -939,19 +1014,27 @@
       app.style.setProperty("--top-h", topH + "px");
       app.style.setProperty("--sheet-h", bottomEl.offsetHeight + "px");
       var visH = Math.max(160, P.H - topH - botH);
+      P.topH = topH; P.botH = botH;
+      if (street.map) street.map.resize();
       P.ox = P.W / 2;
       P.oy = topH + visH / 2;
       P.F = Math.max(Math.min(P.W, visH * 1.5), 260) * 1.15;
       layerDirty = true;
     }
     function frame(ts) {
-      if (stepCamera()) layerDirty = true;
-      if (layerDirty) { renderLayer(); layerDirty = false; overlayDirty = true; }
-      if (overlayDirty || ts - lastFrame > 40) { drawOverlay(ts); overlayDirty = false; lastFrame = ts; }
-      if (lastYaw !== Math.round(cam.yaw)) {
-        lastYaw = Math.round(cam.yaw);
+      if (street.active) {
+        streetApply();
+        if (overlayDirty) { streetSync(); overlayDirty = false; }
+      } else {
+        if (stepCamera()) layerDirty = true;
+        if (layerDirty) { renderLayer(); layerDirty = false; overlayDirty = true; }
+        if (overlayDirty || ts - lastFrame > 40) { drawOverlay(ts); overlayDirty = false; lastFrame = ts; }
+      }
+      var yawNow = street.active ? street.map.getBearing() : cam.yaw;
+      if (lastYaw !== Math.round(yawNow)) {
+        lastYaw = Math.round(yawNow);
         var n = document.getElementById("compassNeedle");
-        if (n) n.setAttribute("transform", "rotate(" + (-cam.yaw) + " 12 12)");
+        if (n) n.setAttribute("transform", "rotate(" + (-yawNow) + " 12 12)");
       }
       requestAnimationFrame(frame);
     }
@@ -1003,7 +1086,7 @@
       goal.dist = clamp(goal.dist * Math.exp(e.deltaY * 0.0015), 2500, 120000);
     }, { passive: false });
 
-    $("btnCompass").addEventListener("click", function () { setFollow(false); goal = copy(OVERVIEW); });
+    $("btnCompass").addEventListener("click", function () { setFollow(false); goal = copy(OVERVIEW); if (street.active) { street.lastGoal = ""; } });
 
     // ---- Location ----
     // One button: off → on and following; after a drag it stays on but free; tap again to follow.
@@ -1064,7 +1147,7 @@
     }
     function onFix(pos) {
       var c = pos.coords, p = toXY(c.latitude, c.longitude);
-      fix = { x: p.x, y: p.y, z: height(p.x, p.y) * EX + LIFT, acc: c.accuracy, near: nearest(p.x, p.y) };
+      fix = { x: p.x, y: p.y, z: height(p.x, p.y) * EX + LIFT, acc: c.accuracy, near: nearestOn(gline, p.x, p.y) };
       // Face the direction of travel while guiding
       if (prevFix && Math.hypot(fix.x - prevFix.x, fix.y - prevFix.y) > 30) {
         if (follow && guide.on) goal.yaw = (Math.atan2(fix.x - prevFix.x, fix.y - prevFix.y) / DEG + 360) % 360;
@@ -1080,7 +1163,7 @@
       var next = nextStop(), prompt = null;
       if (next) {
         var sp = stopPos[next.id], d = Math.hypot(fix.x - sp.x, fix.y - sp.y);
-        if (next.id === "leave") { if (d > 4000) prompt = "On the road? Tick off “Leave Kellyville”."; }
+        if (next.id === "leave") { if (d > 4000) prompt = "On the road? Tick off “Leave home”."; }
         else if (d < (next.id === "home" ? 3000 : 500)) prompt = "You're at " + next.short + ". Tick it off?";
       }
       arriveId = prompt ? next.id : null;
@@ -1188,8 +1271,8 @@
           if (st.dir !== (out ? "out" : "back")) return;
           if (st.stop && state.stops[st.stop]) return;
           var d;
-          if (st.pos.s >= ROAD_LEN - 1 && out && fix.near.s > ROAD_LEN - 2500) d = Math.hypot(fix.x - st.pos.x, fix.y - st.pos.y) - (st.stop ? 0 : 150);
-          else d = out ? st.pos.s - fix.near.s : fix.near.s - st.pos.s;
+          if (gLen - st.s < 50 && out && fix.near.s > gLen - 2500) d = Math.hypot(fix.x - st.pos.x, fix.y - st.pos.y);
+          else d = out ? st.s - fix.near.s : fix.near.s - st.s;
           if (d < -300) return;
           d = Math.max(0, d);
           if (d < bd) { bd = d; best = st; }
@@ -1236,7 +1319,344 @@
     });
     if (synth && synth.getVoices) synth.getVoices();
 
+
+    // ---- Street map: MapLibre with free OpenStreetMap-based tiles; the sketch map stays as the fallback ----
+    var ML_BASE = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl";
+    var STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+    var DEM_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+    var TILE_CACHE = "trip-map-v1";
+    var street = { active: false, loading: false, ready: false, map: null, markers: {}, poi: {}, gps: null, lastGoal: "", routeLL: null, style: null, srcStyle: null };
+    var hasCaches = typeof caches !== "undefined";
+
+    function cacheKey(url) { try { return encodeURI(decodeURIComponent(url)); } catch (e) { return url; } }
+    function readAs(r, type) { return type === "json" ? r.json() : type === "string" ? r.text() : r.arrayBuffer(); }
+    // Cache-first for map pieces, so anything seen or saved works without reception
+    function cachedFetch(url, type) {
+      if (!hasCaches) return fetch(url).then(function (r) { if (!r.ok) throw new Error(r.status); return readAs(r, type); });
+      var key = cacheKey(url);
+      return caches.open(TILE_CACHE).then(function (c) {
+        return c.match(key).then(function (hit) {
+          if (hit) return readAs(hit, type);
+          return fetch(url).then(function (r) {
+            if (!r.ok) throw new Error(r.status);
+            c.put(key, r.clone()).catch(function () {});
+            return readAs(r, type);
+          });
+        });
+      });
+    }
+    // Network-first for the style and tile index, falling back to the saved copy
+    function freshJSON(url) {
+      return fetch(url).then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        if (hasCaches) { var copy = r.clone(); caches.open(TILE_CACHE).then(function (c) { c.put(cacheKey(url), copy); }).catch(function () {}); }
+        return r.json();
+      }).catch(function () {
+        if (!hasCaches) throw new Error("offline");
+        return caches.open(TILE_CACHE).then(function (c) { return c.match(cacheKey(url)); }).then(function (hit) {
+          if (!hit) throw new Error("offline");
+          return hit.json();
+        });
+      });
+    }
+    function tc(u) { return u.replace(/^https:\/\//, "tc://"); }
+    // Route every map request through the "tc://" protocol so it goes via the cache above
+    function prepareStyle(style) {
+      street.srcStyle = JSON.parse(JSON.stringify(style));
+      var jobs = Object.keys(style.sources).map(function (k) {
+        var src = style.sources[k];
+        if (src.url) return freshJSON(src.url).then(function (tj) {
+          delete src.url;
+          src.tiles = tj.tiles.map(tc);
+          ["minzoom", "maxzoom", "bounds", "attribution", "tileSize", "scheme"].forEach(function (f) { if (tj[f] !== undefined && src[f] === undefined) src[f] = tj[f]; });
+          street.srcStyle.sources[k].tiles = tj.tiles;
+        }).catch(function () { delete style.sources[k]; style.layers = style.layers.filter(function (l) { return l.source !== k; }); });
+        if (src.tiles) src.tiles = src.tiles.map(tc);
+        return null;
+      });
+      if (style.glyphs) style.glyphs = tc(style.glyphs);
+      if (typeof style.sprite === "string") style.sprite = tc(style.sprite);
+      else if (Array.isArray(style.sprite)) style.sprite.forEach(function (sp) { sp.url = tc(sp.url); });
+      return Promise.all(jobs).then(function () { return style; });
+    }
+    function loadStreet() {
+      if (IN_VIEWER || street.loading || street.ready) return;
+      street.loading = true;
+      if (window.maplibregl) { initStreet(); return; }
+      var css = document.createElement("link"); css.rel = "stylesheet"; css.href = ML_BASE + ".css";
+      document.head.appendChild(css);
+      var js = document.createElement("script"); js.src = ML_BASE + ".js";
+      js.onload = initStreet;
+      js.onerror = function () { streetFailed(); };
+      document.head.appendChild(js);
+    }
+    function streetFailed() {
+      street.loading = false;
+      activateStreet(false);
+      if (!pref("sketch", false)) snack("Street map isn't available right now, so you're seeing the sketch map.", 4500);
+    }
+    function initStreet() {
+      if (!window.maplibregl) { streetFailed(); return; }
+      try {
+        maplibregl.addProtocol("tc", function (params) {
+          return cachedFetch(params.url.replace(/^tc:\/\//, "https://"), params.type).then(function (data) { return { data: data }; });
+        });
+      } catch (e) {}
+      freshJSON(STYLE_URL).then(prepareStyle).then(function (style) {
+        street.style = style;
+        var m;
+        try {
+          m = new maplibregl.Map({ container: "street", style: style, center: ll(stopPos.windy), zoom: 9, attributionControl: false, maxPitch: 70 });
+        } catch (e) { streetFailed(); return; }
+        street.map = m;
+        m.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
+        var timer = setTimeout(function () { if (!street.ready) streetFailed(); }, 15000);
+        m.on("load", function () {
+          clearTimeout(timer);
+          addStreetLayers(m);
+          street.ready = true; street.loading = false;
+          if (!pref("sketch", false)) activateStreet(true);
+        });
+        m.on("dragstart", function () { if (follow) setFollow(false); });
+        m.on("mousedown", function () { if (sheet.classList.contains("expanded")) setExpanded(false); });
+        m.on("touchstart", function () { if (sheet.classList.contains("expanded")) setExpanded(false); });
+        m.on("zoomend", function () { overlayDirty = true; });
+      }).catch(function () { streetFailed(); });
+    }
+    function routeCoords() { return street.routeLL || road.map(ll); }
+    function addStreetLayers(m) {
+      var layers = m.getStyle().layers, firstSymbol, firstLine;
+      for (var k = 0; k < layers.length; k++) {
+        if (!firstSymbol && layers[k].type === "symbol") firstSymbol = layers[k].id;
+        if (!firstLine && layers[k].type === "line") firstLine = layers[k].id;
+      }
+      try {
+        // Hill shading shows the mountains; full 3D terrain is left off so pins and the route are never hidden behind a ridge
+        m.addSource("dem-shade", { type: "raster-dem", tiles: [tc(DEM_URL)], tileSize: 256, maxzoom: 12, encoding: "terrarium" });
+        m.addLayer({ id: "trip-hills", type: "hillshade", source: "dem-shade", paint: { "hillshade-exaggeration": 0.4, "hillshade-shadow-color": "#5b6b5b" } }, firstLine);
+      } catch (e) {}
+      m.addSource("trip-route", { type: "geojson", data: { type: "Feature", geometry: { type: "LineString", coordinates: routeCoords() } } });
+      m.addLayer({ id: "trip-route-casing", type: "line", source: "trip-route", layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": "#1967d2", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 5, 14, 11] } }, firstSymbol);
+      m.addLayer({ id: "trip-route", type: "line", source: "trip-route", layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": "#4285f4", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 3, 14, 7] } }, firstSymbol);
+    }
+    function updateRouteLayer() {
+      if (street.ready && street.map.getSource("trip-route"))
+        street.map.getSource("trip-route").setData({ type: "Feature", geometry: { type: "LineString", coordinates: routeCoords() } });
+    }
+    function activateStreet(on) {
+      street.active = !!(on && street.ready);
+      $("app").classList.toggle("street-on", street.active);
+      street.lastGoal = "";
+      layout();
+      overlayDirty = true; layerDirty = true;
+    }
+    function streetPad() { return { top: (P.topH || 120) + 16, bottom: (P.botH || 230) + 16, left: 40, right: 72 }; }
+    function streetApply() {
+      var key = [goal.overview, Math.round(goal.tx), Math.round(goal.ty), Math.round(goal.dist), Math.round(goal.pitch), Math.round(goal.yaw)].join("|");
+      if (key === street.lastGoal) return;
+      street.lastGoal = key;
+      var m = street.map;
+      if (goal.overview) {
+        var b = new maplibregl.LngLatBounds();
+        routeCoords().forEach(function (c) { b.extend(c); });
+        var camOpt = m.cameraForBounds(b, { padding: streetPad(), bearing: 0, maxZoom: 13 });
+        if (camOpt) m.easeTo({ center: camOpt.center, zoom: camOpt.zoom, bearing: 0, pitch: 0, duration: 900 });
+        return;
+      }
+      var c = fromXY(goal.tx, goal.ty);
+      m.easeTo({
+        center: [c.lon, c.lat], zoom: clamp(15 + Math.log(7000 / goal.dist) / Math.LN2, 5, 17.5),
+        pitch: clamp(95 - goal.pitch, 0, 65), bearing: goal.yaw, padding: streetPad(), duration: 1100
+      });
+    }
+    function markerEl(cls, html) { var e = document.createElement("div"); e.className = cls; e.innerHTML = html; return e; }
+    function streetSync() {
+      if (!street.ready) return;
+      var m = street.map, next = nextStop(), selId = stops[sel].id, focusStep = guide.current();
+      PINS.forEach(function (pin) {
+        var key = pin.ids[0], mk = street.markers[key];
+        if (!mk) {
+          var e = markerEl("mk", '<div class="c"></div><svg class="tear" viewBox="0 0 32 42" aria-hidden="true"><path d="M16 41S2 25 2 15a14 14 0 0128 0c0 10-14 26-14 26z" fill="#ea4335" stroke="#b31412" stroke-width="1.5"/></svg><div class="lbl"></div>');
+          var num = document.createElement("span"); num.className = "tearnum"; e.appendChild(num);
+          e.addEventListener("click", function (ev) { ev.stopPropagation(); if (!guide.on) selectStop(stopIndex(e.dataset.id), true); });
+          mk = street.markers[key] = new maplibregl.Marker({ element: e, anchor: "center" }).setLngLat(ll(stopPos[key])).addTo(m);
+        }
+        mk.setLngLat(ll(stopPos[key]));
+        var done = pin.ids.every(function (id) { return state.stops[id]; });
+        var isNext = !!next && pin.ids.indexOf(next.id) >= 0, isSel = pin.ids.indexOf(selId) >= 0;
+        var id = isSel ? selId : isNext ? next.id : pin.ids[0], n = done ? "✓" : String(stopIndex(id) + 1);
+        var el = mk.getElement();
+        el.dataset.id = id;
+        el.className = "mk" + (isSel ? " sel" : "") + (isNext ? " next" : "") + (done ? " done" : "");
+        el.querySelector(".c").textContent = n;
+        el.querySelector(".lbl").textContent = pin.label;
+        el.querySelector(".tearnum").textContent = n;
+      });
+      var showPoi = guide.on || m.getZoom() >= 11.5;
+      GUIDE.forEach(function (g) {
+        if (g.stop) return;
+        var mk = street.poi[g.id];
+        if (!mk) {
+          var e = markerEl("mk-poi", '<div class="c"></div><div class="lbl"></div>');
+          e.querySelector(".lbl").textContent = g.title;
+          mk = street.poi[g.id] = new maplibregl.Marker({ element: e, anchor: "center" }).setLngLat(ll(g.pos)).addTo(m);
+        }
+        var el = mk.getElement();
+        el.style.display = showPoi ? "" : "none";
+        el.classList.toggle("focus", !!focusStep && focusStep.id === g.id);
+      });
+      if (fix) {
+        if (!street.gps) street.gps = new maplibregl.Marker({ element: markerEl("mk-gps", '<div class="halo"></div><div class="dot"></div>'), anchor: "center" }).setLngLat(ll(fix)).addTo(m);
+        else street.gps.setLngLat(ll(fix));
+      } else if (street.gps) { street.gps.remove(); street.gps = null; }
+    }
+    $("btnLayers").addEventListener("click", function () {
+      if (street.active) { setPref("sketch", true); activateStreet(false); snack("Sketch map", 1500); }
+      else if (IN_VIEWER) snack("The street map needs the Vercel link. The Claude viewer only shows the sketch map.", 4000);
+      else if (street.ready) { setPref("sketch", false); activateStreet(true); snack("Street map", 1500); }
+      else { setPref("sketch", false); snack("Loading street map…", 2500); loadStreet(); }
+    });
+
+    // ---- Looking up home and the stops, and the real driving route (free OpenStreetMap services, cached) ----
+    var GEO_KEY = KEY + "-geo-v1", ROUTE_KEY = KEY + "-route-v1";
+    var GEO = {
+      home: { q: ["14 Free Settlers Drive, Kellyville NSW 2155, Australia", "Free Settlers Drive, Kellyville NSW, Australia"], near: [-33.71, 150.94], km: 6, e: 60 },
+      windy: { q: ["25 Queens Avenue, Mount Wilson NSW 2786, Australia", "Windyridge Garden, Mount Wilson, Australia", "Queens Avenue, Mount Wilson NSW, Australia"], near: [-33.51, 150.38], km: 4, e: 990 },
+      hillbilly: { q: ["Hillbilly Cider, Bilpin NSW, Australia", "2230 Bells Line of Road, Bilpin NSW, Australia"], near: [-33.50, 150.55], km: 5, e: 600 }
+    };
+    function loadJSON(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+    function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+    function kmBetween(a, b) { var A = toXY(a[0], a[1]), B = toXY(b[0], b[1]); return Math.hypot(A.x - B.x, A.y - B.y) / 1000; }
+    function applyGeo(geo) {
+      Object.keys(geo).forEach(function (id) {
+        var g = geo[id], p = toXY(g.lat, g.lon);
+        p.e = GEO[id].e;
+        if (id === "home") { stopPos.leave = stopPos.home = p; } else stopPos[id] = p;
+      });
+      placeSteps();
+      overlayDirty = true; layerDirty = true;
+    }
+    function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    function geocodeAll() {
+      var geo = loadJSON(GEO_KEY) || {};
+      applyGeo(geo);
+      var todo = Object.keys(GEO).filter(function (id) { return !geo[id]; });
+      var chain = Promise.resolve();
+      todo.forEach(function (id) {
+        GEO[id].q.forEach(function (q) {
+          chain = chain.then(function () {
+            if (geo[id]) return;
+            return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=au&q=" + encodeURIComponent(q))
+              .then(function (r) { return r.json(); })
+              .then(function (res) {
+                if (res && res[0]) {
+                  var lat = +res[0].lat, lon = +res[0].lon;
+                  if (kmBetween([lat, lon], GEO[id].near) < GEO[id].km) geo[id] = { lat: lat, lon: lon };
+                }
+              }).catch(function () {}).then(function () { return wait(1100); });
+          });
+        });
+      });
+      return chain.then(function () { saveJSON(GEO_KEY, geo); applyGeo(geo); renderSheet(); });
+    }
+    function useRoute(coords) {
+      street.routeLL = coords;
+      setGuideLine(coords.map(function (c) { return toXY(c[1], c[0]); }));
+      updateRouteLayer();
+      if (street.active && goal.overview) street.lastGoal = "";
+    }
+    function passesNear(coords, lat, lon, km) {
+      var P0 = toXY(lat, lon);
+      return coords.some(function (c) { var q = toXY(c[1], c[0]); return Math.hypot(q.x - P0.x, q.y - P0.y) < km * 1000; });
+    }
+    function fetchRoute() {
+      var from = ll(stopPos.leave), to = ll(stopPos.windy);
+      var sig = from.concat(to).map(function (v) { return v.toFixed(4); }).join(",");
+      var cached = loadJSON(ROUTE_KEY);
+      if (cached && cached.sig === sig) { useRoute(cached.coords); return Promise.resolve(); }
+      function osrm(pts) {
+        return fetch("https://router.project-osrm.org/route/v1/driving/" + pts.map(function (p) { return p[0].toFixed(5) + "," + p[1].toFixed(5); }).join(";") + "?overview=full&geometries=geojson")
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            var c = j && j.routes && j.routes[0] && j.routes[0].geometry.coordinates;
+            // Only accept a route that goes the planned way: through Richmond and up Bells Line of Road
+            if (c && passesNear(c, -33.600, 150.752, 2.5) && passesNear(c, -33.498, 150.525, 2)) return c;
+            throw new Error("unexpected route");
+          });
+      }
+      return osrm([from, to]).catch(function () { return osrm([from, [150.5250, -33.4980], to]); })
+        .then(function (c) { saveJSON(ROUTE_KEY, { sig: sig, coords: c }); useRoute(c); })
+        .catch(function () {});
+    }
+
+    // ---- Save the street map along the route for offline use ----
+    function lon2tile(lon, z) { return Math.floor((lon + 180) / 360 * Math.pow(2, z)); }
+    function lat2tile(lat, z) { var r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * Math.pow(2, z)); }
+    function corridor(coords, zmin, zmax) {
+      var out = {};
+      for (var z = zmin; z <= zmax; z++) {
+        for (var k = 0; k < coords.length; k++) {
+          var a = coords[k], b = coords[Math.min(k + 1, coords.length - 1)];
+          for (var t = 0; t <= 1; t += 0.25) {
+            var x = lon2tile(a[0] + (b[0] - a[0]) * t, z), y = lat2tile(a[1] + (b[1] - a[1]) * t, z);
+            for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++) out[z + "/" + (x + dx) + "/" + (y + dy)] = 1;
+          }
+        }
+      }
+      return Object.keys(out);
+    }
+    function saveOffline() {
+      var btn = $("saveOffline"), txt = $("offlineText");
+      if (IN_VIEWER) { snack("Saving the map needs the Vercel link."); return; }
+      if (!hasCaches) { snack("This browser can't save maps for offline use."); return; }
+      btn.disabled = true; btn.textContent = "Preparing…";
+      (street.srcStyle ? Promise.resolve() : freshJSON(STYLE_URL).then(prepareStyle)).then(function () {
+        var st = street.srcStyle, urls = [], coords = routeCoords();
+        Object.keys(st.sources).forEach(function (k) {
+          var src = st.sources[k];
+          if (src.type !== "vector" || !src.tiles) return;
+          corridor(coords, 5, Math.min(14, src.maxzoom || 14)).forEach(function (t) {
+            var q = t.split("/"); urls.push(src.tiles[0].replace("{z}", q[0]).replace("{x}", q[1]).replace("{y}", q[2]));
+          });
+        });
+        corridor(coords, 6, 12).forEach(function (t) {
+          var q = t.split("/"); urls.push(DEM_URL.replace("{z}", q[0]).replace("{x}", q[1]).replace("{y}", q[2]));
+        });
+        var stacks = {};
+        st.layers.forEach(function (l) { var f = l.layout && l.layout["text-font"]; if (Array.isArray(f) && typeof f[0] === "string") stacks[f.join(",")] = 1; });
+        if (st.glyphs) Object.keys(stacks).forEach(function (f) {
+          ["0-255", "256-511", "8192-8447"].forEach(function (r) { urls.push(st.glyphs.replace("{fontstack}", encodeURIComponent(f)).replace("{range}", r)); });
+        });
+        var sprites = typeof st.sprite === "string" ? [st.sprite] : (st.sprite || []).map(function (sp) { return sp.url; });
+        sprites.forEach(function (b) { ["", "@2x"].forEach(function (r) { urls.push(b + r + ".json", b + r + ".png"); }); });
+        var done = 0, failed = 0, i = 0;
+        function worker() {
+          if (i >= urls.length) return Promise.resolve();
+          var u = urls[i++];
+          return cachedFetch(u, "arrayBuffer").catch(function () { failed++; }).then(function () {
+            done++;
+            if (done % 10 === 0 || done === urls.length) btn.textContent = "Saving map… " + done + " of " + urls.length;
+            return worker();
+          });
+        }
+        return Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]).then(function () {
+          if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage("cache-shell");
+          btn.textContent = "Map saved for offline";
+          txt.textContent = failed > urls.length / 3
+            ? "Some of the map couldn't be saved (" + failed + " pieces missing). Try again on a better connection."
+            : "Saved " + (done - failed) + " map pieces along the route on this phone. The street map will work without reception.";
+          setPref("offline", true);
+        });
+      }).catch(function () {
+        txt.textContent = "Couldn't reach the map service. Try again when you're online.";
+      }).then(function () { btn.disabled = false; if (btn.textContent.indexOf("Saving") === 0 || btn.textContent === "Preparing…") btn.textContent = "Save map for offline"; });
+    }
+    $("saveOffline").addEventListener("click", saveOffline);
+
     // ---- Start ----
+    setGuideLine(road);
     layout();
     if (window.ResizeObserver) {
       var ro = new ResizeObserver(layout);
@@ -1245,12 +1665,19 @@
     paintGpsBtn();
     if (IN_VIEWER) $("gpsHelp").textContent = "Live location isn't available in the Claude viewer, so Start guide runs the preview tour here. Use the Vercel link for the live guide.";
     else if (pref("gps", false)) startGps();
+    if (!IN_VIEWER) {
+      if (!pref("sketch", false)) loadStreet();
+      geocodeAll().then(fetchRoute);
+      if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(function () {});
+    }
+    if (pref("offline", false)) { $("saveOffline").textContent = "Update offline map"; }
     requestAnimationFrame(frame);
 
     return {
       guide: guide,
       layout: layout,
       update: function () { overlayDirty = true; checkArrival(); guide.onFix(); },
+      latLon: function (id) { return fromXY(stopPos[id].x, stopPos[id].y); },
       flyToStop: function (id) {
         setFollow(false);
         var p = stopPos[id];
