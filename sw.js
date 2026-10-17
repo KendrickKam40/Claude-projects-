@@ -1,10 +1,14 @@
-// Keeps the trip page and the map library available without phone reception.
+// Keeps the trip page, the bundled map library and the fonts available without phone reception.
 // Map tiles are cached by the page itself (see cachedFetch in index.html).
-const CACHE = "trip-shell-v1";
+const CACHE = "trip-shell-v2";
+const OLD = ["trip-shell-v1", "trip-map-v1"];
+const VENDOR = "vendor/maplibre-gl-6.11.2/";
 const SHELL = [
   "./",
-  "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js",
-  "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+  VENDOR + "maplibre-gl.mjs",
+  VENDOR + "maplibre-gl-shared.mjs",
+  VENDOR + "maplibre-gl-worker.mjs",
+  VENDOR + "maplibre-gl.css"
 ];
 
 function cacheShell() {
@@ -16,11 +20,27 @@ self.addEventListener("install", (e) => {
   self.skipWaiting();
 });
 
-self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener("activate", (e) => {
+  e.waitUntil(Promise.all(OLD.map((k) => caches.delete(k))).then(() => self.clients.claim()));
+});
 
 self.addEventListener("message", (e) => {
   if (e.data === "cache-shell") e.waitUntil(cacheShell());
 });
+
+function cacheFirst(req) {
+  return caches.match(req).then(
+    (hit) =>
+      hit ||
+      fetch(req).then((r) => {
+        if (r.ok || r.type === "opaque") {
+          const copy = r.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy));
+        }
+        return r;
+      })
+  );
+}
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
@@ -41,18 +61,9 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // The map library: cache first
-  if (url.host === "unpkg.com") {
-    e.respondWith(
-      caches.match(req).then(
-        (hit) =>
-          hit ||
-          fetch(req).then((r) => {
-            const copy = r.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy));
-            return r;
-          })
-      )
-    );
+  // Bundled map library and fonts: cache first
+  const sameOriginVendor = url.origin === self.location.origin && url.pathname.includes("/vendor/");
+  if (sameOriginVendor || url.host === "fonts.googleapis.com" || url.host === "fonts.gstatic.com") {
+    e.respondWith(cacheFirst(req));
   }
 });
