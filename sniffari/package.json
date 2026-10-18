@@ -1,0 +1,33 @@
+{
+  "name": "sniffari",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Find dog-friendly places you can go right now, and plan great days out with your dogs. Sydney and NSW first.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "import:sydney": "node scripts/import-city-of-sydney.mjs",
+    "import:osm": "node scripts/import-osm.mjs",
+    "seed:sql": "node --experimental-strip-types scripts/seed-to-sql.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
+    "maplibre-gl": "6.11.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.6",
+    "vite-plugin-pwa": "1.3.0",
+    "vitest": "4.1.11"
+  }
+}
