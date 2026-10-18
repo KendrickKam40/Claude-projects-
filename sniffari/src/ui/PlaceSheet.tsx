@@ -5,7 +5,7 @@ import { daySegments, describe } from "../domain/rules";
 import { KIND_LABEL, STATUS_LABEL } from "../domain/types";
 import { formatDistance } from "../domain/geo";
 import { localParts } from "../domain/time";
-import { directionsUrl, placeSources, ruleWhen } from "../app/logic";
+import { directionsUrl, googleListingUrl, placeSources, ruleWhen } from "../app/logic";
 import type { ReportKind, ReportSummary } from "../data/repository";
 import { Icon, KindIcon } from "./Icons";
 import { featureBadges } from "./PlaceCard";
@@ -132,6 +132,7 @@ export default function PlaceSheet({ row, at, when, saved, inPlan, onPlan, canRe
 
         <div className="acts">
           <a className="btn primary" href={directionsUrl(place)} target="_blank" rel="noopener">{Icon.directions()} Directions</a>
+          <a className="btn" href={googleListingUrl(place)} target="_blank" rel="noopener">★ Google reviews</a>
           <button type="button" className={`btn${saved ? " on" : ""}`} onClick={onSave} aria-pressed={saved}>{Icon.heart()} {saved ? "Saved" : "Save"}</button>
           <button type="button" className={`btn${inPlan ? " on" : ""}`} onClick={onPlan}>{inPlan ? <>{Icon.check()} In your day out</> : <>{Icon.paw()} Add to day out</>}</button>
         </div>

@@ -93,7 +93,18 @@ export function freshness(place: Place): string {
 }
 
 export function directionsUrl(place: Place): string {
-  return `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lon}`;
+  const q = new URLSearchParams({ api: "1", destination: `${place.lat},${place.lon}` });
+  if (place.googlePlaceId) q.set("destination_place_id", place.googlePlaceId);
+  return `https://www.google.com/maps/dir/?${q}`;
+}
+
+/** Opens the place's Google Maps listing (reviews, photos, hours). Free, no API key: a place ID when we have one,
+ *  otherwise a name-and-suburb search that lands on the listing. */
+export function googleListingUrl(place: Place): string {
+  const where = place.address ?? place.area;
+  const q = new URLSearchParams({ api: "1", query: `${place.name}, ${where}` });
+  if (place.googlePlaceId) q.set("query_place_id", place.googlePlaceId);
+  return `https://www.google.com/maps/search/?${q}`;
 }
 
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

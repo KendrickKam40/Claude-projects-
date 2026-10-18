@@ -90,6 +90,8 @@ export interface Place {
   /** Short, practical notes ("Small-dog area by the car park"). */
   notes?: string[];
   hazards?: string[];
+  /** Google Maps place ID, for linking to the place's Google listing and reviews. */
+  googlePlaceId?: string;
 }
 
 export type Region = "hills_nw" | "north" | "east_inner_west" | "south" | "city" | "regional";

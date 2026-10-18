@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareResults, freshness, isReactiveFriendly, passes, resolveWhen, ruleWhen, whenWord, NO_FILTERS } from "./logic";
+import { compareResults, directionsUrl, freshness, googleListingUrl, isReactiveFriendly, passes, resolveWhen, ruleWhen, whenWord, NO_FILTERS } from "./logic";
 import { evaluate } from "../domain/rules";
 import { formatClock, localParts, sydneyTime } from "../domain/time";
 import { SEED_PLACES } from "../data/seed";
@@ -52,6 +52,18 @@ describe("filters", () => {
     const np = { ev: evaluate(byId("lane-cove-np")), distanceKm: 1 };
     const park = { ev: evaluate(byId("coolong-reserve")), distanceKm: 20 };
     expect([np, park].sort(compareResults)[0]).toBe(park);
+  });
+});
+
+describe("Google Maps links", () => {
+  it("searches by name and address, and pins the exact listing once a place ID is known", () => {
+    const p = byId("sirius-cove");
+    const u = new URL(googleListingUrl(p));
+    expect(u.searchParams.get("query")).toContain("Sirius Cove");
+    expect(u.searchParams.get("query_place_id")).toBeNull();
+    const withId = new URL(googleListingUrl({ ...p, googlePlaceId: "ChIJabc" }));
+    expect(withId.searchParams.get("query_place_id")).toBe("ChIJabc");
+    expect(new URL(directionsUrl({ ...p, googlePlaceId: "ChIJabc" })).searchParams.get("destination_place_id")).toBe("ChIJabc");
   });
 });
 
