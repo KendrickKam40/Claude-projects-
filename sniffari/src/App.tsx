@@ -11,6 +11,9 @@ import { Icon, Pup } from "./ui/Icons";
 import PlaceCard from "./ui/PlaceCard";
 import PlaceSheet from "./ui/PlaceSheet";
 import SignIn from "./ui/SignIn";
+import PlanView from "./ui/PlanView";
+import { decodePlan, encodePlan, type Plan } from "./app/plan";
+import { localParts } from "./domain/time";
 import type { ResultRow } from "./ui/types";
 
 const MapView = lazy(() => import("./ui/MapView"));
@@ -26,6 +29,25 @@ const FILTERS: { key: keyof Filters; label: string }[] = [
 
 type Where = { lat: number; lon: number; label: string; located: boolean };
 const HOME: Where = { ...DEFAULT_CENTRE, label: "Kellyville", located: false };
+
+const LS_PLAN = "sniffari.plan.v1";
+
+function defaultStart(): string {
+  const p = localParts(resolveWhen("weekend", undefined));
+  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}T08:00`;
+}
+
+/** A shared link (#plan=…) wins over the plan saved on this device. */
+function initialPlan(): { plan: Plan; shared: boolean } {
+  const m = /^#plan=([\w-]+)$/.exec(location.hash);
+  const shared = m ? decodePlan(m[1]!) : null;
+  if (shared) return { plan: shared, shared: true };
+  try {
+    const saved = decodePlan(localStorage.getItem(LS_PLAN) ?? "");
+    if (saved) return { plan: saved, shared: false };
+  } catch { /* storage blocked */ }
+  return { plan: { title: "Our day out", start: defaultStart(), from: { label: HOME.label, lat: HOME.lat, lon: HOME.lon }, stops: [] }, shared: false };
+}
 
 function useWide() {
   const q = "(min-width: 900px)";
@@ -44,7 +66,9 @@ export default function App() {
   const [whenKey, setWhenKey] = useState<WhenKey>("now");
   const [custom, setCustom] = useState("");
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
-  const [view, setView] = useState<"list" | "map">("list");
+  const [first] = useState(initialPlan);
+  const [view, setView] = useState<"list" | "map" | "plan">(first.shared ? "plan" : "list");
+  const [plan, setPlanState] = useState<Plan>(first.plan);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [places, setPlaces] = useState<NearbyPlace[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -74,6 +98,15 @@ export default function App() {
     return () => { live = false; };
   }, [where.lat, where.lon]);
 
+  useEffect(() => {
+    if (first.shared) history.replaceState(null, "", location.pathname);
+  }, [first.shared]);
+
+  const setPlan = useCallback((p: Plan) => {
+    setPlanState(p);
+    try { localStorage.setItem(LS_PLAN, encodePlan(p)); } catch { /* storage blocked */ }
+  }, []);
+
   const toast = useCallback((m: string) => { setToastMsg(m); setTimeout(() => setToastMsg((c) => (c === m ? null : c)), 3200); }, []);
 
   const at = useMemo(() => resolveWhen(whenKey, custom, new Date(tick)), [whenKey, custom, tick]);
@@ -87,7 +120,25 @@ export default function App() {
       .sort(compareResults);
   }, [places, at, filters, saved]);
 
-  const selected = rows.find((r) => r.place.id === selectedId) ?? null;
+  const byId = useMemo(() => new Map((places ?? []).map((p) => [p.place.id, p.place])), [places]);
+  // Look up the open place among all places, not just the filtered ones, so day-out stops always open.
+  const selected: ResultRow | null = useMemo(() => {
+    const hit = places?.find((p) => p.place.id === selectedId);
+    return hit ? { ...hit, ev: evaluate(hit.place, at) } : null;
+  }, [places, selectedId, at]);
+  const inPlan = !!selected && plan.stops.some((s) => s.placeId === selected.place.id);
+
+  function togglePlan(id: string) {
+    if (plan.stops.some((s) => s.placeId === id)) {
+      setPlan({ ...plan, stops: plan.stops.filter((s) => s.placeId !== id) });
+      toast("Removed from your day out.");
+    } else if (plan.stops.length >= 12) {
+      toast("That's a big day! A day out holds up to 12 stops.");
+    } else {
+      setPlan({ ...plan, stops: [...plan.stops, { placeId: id, stayMin: 60 }] });
+      toast(`Added. ${plan.stops.length + 1} stop${plan.stops.length ? "s" : ""} in your day out.`);
+    }
+  }
   const offCount = rows.filter((r) => r.ev.status === "off_leash").length;
   const canReport = repo.mode === "local" || !!session;
 
@@ -114,7 +165,8 @@ export default function App() {
   const loadSummary = useCallback(() => repo.reportSummary(selectedId ?? ""), [selectedId]);
   const report = useCallback((kind: Parameters<Repository["addReport"]>[1], note?: string) => repo.addReport(selectedId ?? "", kind, note), [selectedId]);
 
-  const showList = wide || view === "list";
+  const showPlan = view === "plan";
+  const showList = !showPlan && (wide || view === "list");
   const showMap = wide || view === "map";
 
   return (
@@ -123,10 +175,16 @@ export default function App() {
         <div className="brandrow">
           <a className="logo" href="/" aria-label="Sniffari home"><Pup /> Sniffari</a>
           <span className="grow" />
+          {wide && (
+            <button type="button" className={`pill${showPlan ? " on" : ""}`} onClick={() => setView(showPlan ? "list" : "plan")}>
+              {Icon.paw()} Day out{plan.stops.length ? ` (${plan.stops.length})` : ""}
+            </button>
+          )}
           {supabase && (session
             ? <button type="button" className="iconbtn" aria-label="Sign out" title={`Signed in as ${session.user.email}. Tap to sign out.`} onClick={() => { supabase!.auth.signOut(); toast("Signed out."); }}>{Icon.user()}</button>
             : <button type="button" className="pill" onClick={() => setSigningIn(true)}>Sign in</button>)}
         </div>
+        {!showPlan && <>
         <div className="where">
           <button type="button" className={`pill${where.located ? " brand" : ""}`} onClick={locate} aria-label="Use my location">
             {Icon.locate()} {locating ? "Finding you…" : where.label}
@@ -150,6 +208,7 @@ export default function App() {
             </button>
           ))}
         </div>
+        </>}
       </header>
 
       <main className={wide ? "split" : undefined}>
@@ -174,6 +233,11 @@ export default function App() {
             )}
           </div>
         )}
+        {showPlan && (
+          <div className="list">
+            <PlanView plan={plan} setPlan={setPlan} byId={byId} here={where} onOpen={setSelectedId} toast={toast} />
+          </div>
+        )}
         {showMap && (
           <div className="mapwrap">
             <Suspense fallback={<p className="count" style={{ padding: 16 }}>Loading map…</p>}>
@@ -187,11 +251,13 @@ export default function App() {
         <nav className="viewbar" aria-label="View">
           <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")}>{Icon.list()} List</button>
           <button type="button" aria-pressed={view === "map"} onClick={() => setView("map")}>{Icon.map()} Map</button>
+          <button type="button" aria-pressed={view === "plan"} onClick={() => setView("plan")}>{Icon.paw()} Day out{plan.stops.length ? ` ${plan.stops.length}` : ""}</button>
         </nav>
       )}
 
       {selected && (
         <PlaceSheet row={selected} at={at} when={word} saved={saved.has(selected.place.id)} canReport={canReport}
+          inPlan={inPlan} onPlan={() => togglePlan(selected.place.id)}
           onSave={() => toggleSave(selected.place.id)} onClose={closeSheet} onNeedSignIn={() => setSigningIn(true)}
           loadSummary={loadSummary} report={report} toast={toast} />
       )}

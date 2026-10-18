@@ -50,6 +50,8 @@ interface Props {
   at: Date;
   when: string;
   saved: boolean;
+  inPlan: boolean;
+  onPlan: () => void;
   canReport: boolean;
   onSave: () => void;
   onClose: () => void;
@@ -59,7 +61,7 @@ interface Props {
   toast: (msg: string) => void;
 }
 
-export default function PlaceSheet({ row, at, when, saved, canReport, onSave, onClose, onNeedSignIn, loadSummary, report, toast }: Props) {
+export default function PlaceSheet({ row, at, when, saved, inPlan, onPlan, canReport, onSave, onClose, onNeedSignIn, loadSummary, report, toast }: Props) {
   const { place, ev, distanceKm } = row;
   const [summary, setSummary] = useState<ReportSummary | null>(null);
   const [busy, setBusy] = useState(false);
@@ -131,6 +133,7 @@ export default function PlaceSheet({ row, at, when, saved, canReport, onSave, on
         <div className="acts">
           <a className="btn primary" href={directionsUrl(place)} target="_blank" rel="noopener">{Icon.directions()} Directions</a>
           <button type="button" className={`btn${saved ? " on" : ""}`} onClick={onSave} aria-pressed={saved}>{Icon.heart()} {saved ? "Saved" : "Save"}</button>
+          <button type="button" className={`btn${inPlan ? " on" : ""}`} onClick={onPlan}>{inPlan ? <>{Icon.check()} In your day out</> : <>{Icon.paw()} Add to day out</>}</button>
         </div>
 
         {featureBadges(place).length > 0 && <div className="badges">{featureBadges(place).map((b) => <span key={b} className="badge">{b}</span>)}</div>}
