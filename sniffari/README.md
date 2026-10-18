@@ -68,6 +68,8 @@ This turns on shared reports, saved places across devices, invite-only sign-in a
    1. `supabase/migrations/20261018000000_init.sql`
    2. `supabase/migrations/20261018010000_import_places.sql`
    3. `supabase/seed.sql` (the 29 starter places)
+
+   Or paste `supabase/setup.sql`, which is all three in one file.
 3. **Make sign-in invite-only**
    - Go to **Authentication → Sign In / Providers** (on older dashboards, **Authentication → Settings**).
    - Turn **off** "Allow new users to sign up".
