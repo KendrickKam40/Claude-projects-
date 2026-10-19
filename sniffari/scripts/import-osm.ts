@@ -6,7 +6,8 @@ import { OVERPASS_QUERY, toRow, type OsmElement } from "./osm.ts";
 const dry = process.argv.includes("--dry-run");
 const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!dry && (!url || !key)) {
-  console.log("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set: nothing to do.");
+  // A GitHub Actions warning annotation, so a run that imported nothing doesn't pass unnoticed.
+  console.log("::warning::SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set (add the SNIFFARI_* repository secrets): nothing imported.");
   process.exit(0);
 }
 
