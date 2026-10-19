@@ -1,7 +1,7 @@
 // Pulls every OpenStreetMap dog park in NSW into Supabase. Run weekly by .github/workflows/sniffari-import.yml.
 // Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. Add --dry-run to print what would be sent.
 
-import { OVERPASS_QUERY, toRow, type OsmElement } from "./osm.ts";
+import { OVERPASS_QUERY, projectBase, toRow, type OsmElement } from "./osm.ts";
 
 const dry = process.argv.includes("--dry-run");
 const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -20,7 +20,7 @@ if (!res.ok) throw new Error(`Overpass ${res.status}: ${await res.text()}`);
 const { elements } = (await res.json()) as { elements: OsmElement[] };
 const today = new Date().toISOString().slice(0, 10);
 const rows = elements.map((e) => toRow(e, today)).filter((r) => r !== null);
-console.log(`OpenStreetMap: ${elements.length} dog parks, ${rows.length} usable.`);
+console.log(`OpenStreetMap: ${elements.length} dog parks and dog-friendly venues, ${rows.length} usable.`);
 if (rows.length < 20) throw new Error("Suspiciously few dog parks; not importing so nothing gets removed by mistake.");
 
 if (dry) {
@@ -28,7 +28,7 @@ if (dry) {
   process.exit(0);
 }
 
-const rpc = await fetch(`${url}/rest/v1/rpc/import_places`, {
+const rpc = await fetch(`${projectBase(url!)}/rest/v1/rpc/import_places`, {
   method: "POST",
   // Legacy service_role keys are JWTs and go in both headers; newer sb_secret_ keys go in apikey only.
   headers: { apikey: key!, ...(key!.startsWith("eyJ") ? { authorization: `Bearer ${key}` } : {}), "content-type": "application/json" },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { regionFor, toRow } from "./osm";
+import { projectBase, regionFor, toRow } from "./osm";
 import { SEED_PLACES } from "../src/data/seed";
 
 describe("OSM import", () => {
@@ -24,5 +24,9 @@ describe("OSM import", () => {
   it("puts places in the same regions as the hand-checked ones", () => {
     const wrong = SEED_PLACES.filter((p) => regionFor(p.lat, p.lon) !== p.region).map((p) => `${p.id}: ${p.region} vs ${regionFor(p.lat, p.lon)}`);
     expect(wrong.length, wrong.join("\n")).toBeLessThanOrEqual(3);
+  });
+  it("accepts the project URL with or without a trailing slash or /rest/v1", () => {
+    for (const u of ["https://abc.supabase.co", "https://abc.supabase.co/", "https://abc.supabase.co/rest/v1", " https://abc.supabase.co/rest/v1/ "])
+      expect(projectBase(u)).toBe("https://abc.supabase.co");
   });
 });

@@ -114,3 +114,9 @@ area["ISO3166-2"="AU-NSW"][admin_level=4]->.nsw;
   nwr["amenity"~"^(cafe|ice_cream|restaurant|fast_food|pub|bar|biergarten)$"]["dog"~"^(yes|leashed|outside)$"](area.nsw);
 );
 out center tags;`;
+
+/** The Supabase project URL as pasted from the dashboard may end in "/", "/rest/v1" or "/rest/v1/"; reduce it to the
+ *  project's base URL so the importer builds the right API path. */
+export function projectBase(url: string): string {
+  return url.trim().replace(/\/+$/, "").replace(/\/rest\/v1$/, "").replace(/\/+$/, "");
+}
