@@ -50,9 +50,15 @@ export interface Filters {
   fenced: boolean;
   reactive: boolean;
   saved: boolean;
+  venues: boolean;
 }
 
-export const NO_FILTERS: Filters = { offLeash: false, fenced: false, reactive: false, saved: false };
+export const NO_FILTERS: Filters = { offLeash: false, fenced: false, reactive: false, saved: false, venues: false };
+
+/** Somewhere to eat or drink with the dogs, rather than a park, beach or walk. */
+export function isVenue(place: Place): boolean {
+  return place.kind === "cafe" || place.kind === "restaurant" || place.kind === "pub";
+}
 
 /** Fully fenced, or with a separate small-dog area: the places most suited to dogs that need space from others. */
 export function isReactiveFriendly(place: Place): boolean {
@@ -64,6 +70,7 @@ export function passes(place: Place, ev: Evaluation, f: Filters, saved: Set<stri
   if (f.fenced && place.features.fenced !== "full") return false;
   if (f.reactive && !isReactiveFriendly(place)) return false;
   if (f.saved && !saved.has(place.id)) return false;
+  if (f.venues && !isVenue(place)) return false;
   return true;
 }
 
@@ -96,6 +103,13 @@ export function directionsUrl(place: Place): string {
   const q = new URLSearchParams({ api: "1", destination: `${place.lat},${place.lon}` });
   if (place.googlePlaceId) q.set("destination_place_id", place.googlePlaceId);
   return `https://www.google.com/maps/dir/?${q}`;
+}
+
+/** A Google Maps search, e.g. "dog friendly cafes near me". Free, no API key; on a phone it opens the Maps app,
+ *  which uses the phone's own location for "near me". */
+export function googleSearchUrl(what: string, near: { label: string; located: boolean }): string {
+  const where = near.located ? "near me" : `near ${near.label} NSW`;
+  return `https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query: `${what} ${where}` })}`;
 }
 
 /** Opens the place's Google Maps listing (reviews, photos, hours). Free, no API key: a place ID when we have one,

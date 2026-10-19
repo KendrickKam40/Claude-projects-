@@ -82,7 +82,9 @@ export default function MapView({ rows, centre, located, selectedId, onSelect }:
       let entry = markers.current.get(place.id);
       if (!entry) {
         const el = document.createElement("div");
-        el.innerHTML = PAW;
+        // MapLibre positions the outer element and owns its classes; colour and selection live on the inner pin.
+        el.className = "mkwrap";
+        el.innerHTML = `<span class="mk">${PAW}</span>`;
         el.setAttribute("role", "button");
         el.setAttribute("tabindex", "0");
         el.addEventListener("click", (e) => { e.stopPropagation(); onSelect(place.id); });
@@ -90,7 +92,9 @@ export default function MapView({ rows, centre, located, selectedId, onSelect }:
         entry = { m: new Marker({ element: el, anchor: "bottom" }).setLngLat([place.lon, place.lat]).addTo(m), el, status: ev.status };
         markers.current.set(place.id, entry);
       }
-      entry.el.className = `mk ${ev.status}${place.id === selectedId ? " sel" : ""}`;
+      const pin = entry.el.firstElementChild as HTMLElement;
+      pin.className = `mk ${ev.status}${place.id === selectedId ? " sel" : ""}`;
+      entry.el.style.zIndex = place.id === selectedId ? "2" : "";
       entry.el.setAttribute("aria-label", `${place.name}: ${ev.status.replace("_", " ")}`);
     }
     for (const [id, entry] of markers.current) if (!seen.has(id)) { entry.m.remove(); markers.current.delete(id); }

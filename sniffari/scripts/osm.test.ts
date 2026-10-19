@@ -9,9 +9,17 @@ describe("OSM import", () => {
     expect(r.defaultSource).toMatchObject({ kind: "community", url: "https://www.openstreetmap.org/way/42", checked: "2026-10-18" });
   });
   it("names unnamed parks by suburb and skips private ones and ones without a position", () => {
-    expect(toRow({ type: "node", id: 1, lat: -33.9, lon: 151.2, tags: { "addr:suburb": "Erskineville" } }, "2026-10-18")!.name).toBe("Erskineville dog park");
-    expect(toRow({ type: "node", id: 2, lat: -33.9, lon: 151.2, tags: { access: "private" } }, "2026-10-18")).toBeNull();
+    expect(toRow({ type: "node", id: 1, lat: -33.9, lon: 151.2, tags: { leisure: "dog_park", "addr:suburb": "Erskineville" } }, "2026-10-18")!.name).toBe("Erskineville dog park");
+    expect(toRow({ type: "node", id: 2, lat: -33.9, lon: 151.2, tags: { leisure: "dog_park", access: "private" } }, "2026-10-18")).toBeNull();
     expect(toRow({ type: "way", id: 3, tags: {} }, "2026-10-18")).toBeNull();
+  });
+  it("maps dog-friendly venues and skips unnamed or dogs-not-allowed ones", () => {
+    const pub = toRow({ type: "node", id: 7, lat: -33.89, lon: 151.18, tags: { amenity: "pub", name: "The Dog & Bone", dog: "outside", "addr:suburb": "Newtown" } }, "2026-10-19")!;
+    expect(pub).toMatchObject({ kind: "pub", defaultStatus: "on_lead", area: "Newtown", name: "The Dog & Bone" });
+    expect(pub.notes.join(" ")).toContain("outdoor area only");
+    expect(toRow({ type: "node", id: 8, lat: -33.89, lon: 151.18, tags: { amenity: "cafe", name: "No Dogs Café", dog: "no" } }, "2026-10-19")).toBeNull();
+    expect(toRow({ type: "node", id: 9, lat: -33.89, lon: 151.18, tags: { amenity: "cafe", dog: "yes" } }, "2026-10-19")).toBeNull();
+    expect(toRow({ type: "node", id: 10, lat: -33.89, lon: 151.18, tags: { amenity: "cafe", name: "Plain Café" } }, "2026-10-19")).toBeNull();
   });
   it("puts places in the same regions as the hand-checked ones", () => {
     const wrong = SEED_PLACES.filter((p) => regionFor(p.lat, p.lon) !== p.region).map((p) => `${p.id}: ${p.region} vs ${regionFor(p.lat, p.lon)}`);

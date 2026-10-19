@@ -36,6 +36,8 @@ export function KindIcon({ kind }: { kind: PlaceKind }) {
     case "regional_park":
     case "national_park": return svg(<><path d="M7 21v-4M17 21v-5" /><path d="M7 17l-4 0 4-7-2.5 0L7 5l2.5 5H7l4 7z" /><path d="M17 16h-4l4-6h-2l2-4 2 4h-2l4 6z" /></>);
     case "garden": return svg(<><circle cx="12" cy="9" r="2.5" /><path d="M12 6.5V4M12 14v7M9.5 9H7M17 9h-2.5M10 7l-1.5-1.5M15.5 5.5L14 7M10 11l-1.5 1.5M14 11l1.5 1.5M12 18c-2 0-4-1-5-3 2 0 4 1 5 3zM12 17c2 0 4-1 5-3-2 0-4 1-5 3" /></>);
+    case "pub": return svg(<><path d="M6 7h9v12a2 2 0 01-2 2H8a2 2 0 01-2-2z" /><path d="M15 10h2a2 2 0 012 2v3a2 2 0 01-2 2h-2M6 7a2.5 2.5 0 014.5-1.5A2.5 2.5 0 0115 7M9 11v6M12 11v6" /></>);
+    case "restaurant": return svg(<><path d="M7 3v8M5 3v5a2 2 0 004 0V3M7 11v10M17 21V3c-2 1-3 4-3 7h3" /></>);
     case "cafe": return svg(<><path d="M4 9h12v5a5 5 0 01-5 5H9a5 5 0 01-5-5z" /><path d="M16 11h2a2 2 0 010 4h-2M8 3v3M12 3v3" /></>);
     case "lookout": return svg(<><path d="M3 20l6-10 4 6 3-4 5 8z" /><circle cx="17" cy="6" r="2" /></>);
     default: return svg(<><circle cx="12" cy="10" r="5" /><path d="M12 15v6M9 21h6" /></>);

@@ -53,6 +53,8 @@ export type PlaceKind =
   | "state_forest"
   | "garden"
   | "cafe"
+  | "restaurant"
+  | "pub"
   | "lookout"
   | "national_park";
 
@@ -113,6 +115,8 @@ export const KIND_LABEL: Record<PlaceKind, string> = {
   state_forest: "State forest",
   garden: "Garden",
   cafe: "Café",
+  restaurant: "Restaurant",
+  pub: "Pub or bar",
   lookout: "Lookout",
   national_park: "National park",
 };

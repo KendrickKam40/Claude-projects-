@@ -6,7 +6,7 @@ import { evaluate } from "./domain/rules";
 import { DEFAULT_CENTRE } from "./domain/geo";
 import { LocalRepository, SupabaseRepository, type NearbyPlace, type Repository } from "./data/repository";
 import { supabase } from "./lib/supabase";
-import { compareResults, passes, resolveWhen, whenWord, NO_FILTERS, WHEN_LABEL, type Filters, type WhenKey } from "./app/logic";
+import { compareResults, googleSearchUrl, passes, resolveWhen, whenWord, NO_FILTERS, WHEN_LABEL, type Filters, type WhenKey } from "./app/logic";
 import { Icon, Pup } from "./ui/Icons";
 import PlaceCard from "./ui/PlaceCard";
 import PlaceSheet from "./ui/PlaceSheet";
@@ -24,6 +24,7 @@ const FILTERS: { key: keyof Filters; label: string }[] = [
   { key: "offLeash", label: "Off-leash then" },
   { key: "fenced", label: "Fully fenced" },
   { key: "reactive", label: "Reactive-friendly" },
+  { key: "venues", label: "Cafés & pubs" },
   { key: "saved", label: "Saved" },
 ];
 
@@ -219,13 +220,15 @@ export default function App() {
             ) : !places ? (
               <p className="count">Sniffing around…</p>
             ) : rows.length === 0 ? (
-              <div className="empty"><Pup size={96} /><h2>No places match</h2><p>Try fewer filters or a different time.</p></div>
+              <div className="empty"><Pup size={96} /><h2>No places match</h2><p>Try fewer filters or a different time.</p>
+                {filters.venues && <GoogleSearches near={where} />}</div>
             ) : (
               <>
                 <p className="count">{offCount} off-leash {word === "now" ? "right now" : word} · {rows.length} {rows.length === 1 ? "place" : "places"}</p>
                 <div className="cards">
                   {rows.map((r) => <PlaceCard key={r.place.id} row={r} at={at} when={word} onOpen={() => setSelectedId(r.place.id)} />)}
                 </div>
+                <GoogleSearches near={where} />
                 <p className="hint" style={{ textAlign: "center", marginTop: 20 }}>
                   Rules change. Signs at the park win: if they disagree, tap the place and flag it.
                 </p>
@@ -263,6 +266,20 @@ export default function App() {
       )}
       {signingIn && supabase && <SignIn db={supabase} onClose={() => setSigningIn(false)} />}
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
+    </div>
+  );
+}
+
+/** Google is where most people look, so hand off to it for anything Sniffari doesn't cover yet. Free, no API key. */
+function GoogleSearches({ near }: { near: { label: string; located: boolean } }) {
+  return (
+    <div className="gsearch">
+      <p className="hint">Search Google Maps for more spots {near.located ? "near you" : `near ${near.label}`}:</p>
+      <div className="acts">
+        {["dog friendly cafes", "dog friendly pubs", "dog park"].map((q) => (
+          <a key={q} className="btn" href={googleSearchUrl(q, near)} target="_blank" rel="noopener">{q.replace(/^dog friendly /, "Dog-friendly ").replace(/^dog park$/, "Dog parks")}</a>
+        ))}
+      </div>
     </div>
   );
 }

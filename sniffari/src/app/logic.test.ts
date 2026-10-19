@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareResults, directionsUrl, freshness, googleListingUrl, isReactiveFriendly, passes, resolveWhen, ruleWhen, whenWord, NO_FILTERS } from "./logic";
+import { compareResults, directionsUrl, freshness, googleListingUrl, googleSearchUrl, isVenue, isReactiveFriendly, passes, resolveWhen, ruleWhen, whenWord, NO_FILTERS } from "./logic";
 import { evaluate } from "../domain/rules";
 import { formatClock, localParts, sydneyTime } from "../domain/time";
 import { SEED_PLACES } from "../data/seed";
@@ -55,7 +55,21 @@ describe("filters", () => {
   });
 });
 
+describe("venues", () => {
+  it("are cafés, restaurants and pubs, and the Cafés & pubs filter keeps only them", () => {
+    const cider = byId("hillbilly-cider"), park = byId("coolong-reserve");
+    const f = { ...NO_FILTERS, venues: true };
+    expect(isVenue(cider)).toBe(true);
+    expect(passes(cider, evaluate(cider), f, new Set())).toBe(true);
+    expect(passes(park, evaluate(park), f, new Set())).toBe(false);
+  });
+});
+
 describe("Google Maps links", () => {
+  it("searches near the person, or near the chosen suburb", () => {
+    expect(new URL(googleSearchUrl("dog friendly cafes", { label: "Near me", located: true })).searchParams.get("query")).toBe("dog friendly cafes near me");
+    expect(new URL(googleSearchUrl("dog friendly pubs", { label: "Kellyville", located: false })).searchParams.get("query")).toBe("dog friendly pubs near Kellyville NSW");
+  });
   it("searches by name and address, and pins the exact listing once a place ID is known", () => {
     const p = byId("sirius-cove");
     const u = new URL(googleListingUrl(p));

@@ -31,7 +31,7 @@ Other dog apps list places. Sniffari tells you **what applies at the moment you'
    - Mona Vale's dog-beach trial has ended.
    - Woollahra's and Mosman's pages give conflicting details in places, so check the signs.
    - Silver Beach is only backed by a local guide.
-2. **OpenStreetMap dog parks across NSW.** A weekly import adds every `leisure=dog_park` mapped by OSM volunteers.
+2. **OpenStreetMap dog parks and dog-friendly cafés, restaurants and pubs across NSW.** A weekly import adds every `leisure=dog_park` mapped by OSM volunteers.
    - It skips anything within 150 m of a hand-checked place.
    - It removes parks that disappear from OSM.
    - It never overwrites a hand-checked place.
